@@ -172,12 +172,12 @@ You should see a command like `date` appear in your prompt.
 ```bash
 export ZSH_AI_PROVIDER="anthropic"
 export ZSH_AI_ANTHROPIC_MODEL="claude-haiku-4-5"
-export ZSH_AI_OPENAI_MODEL="gpt-5-mini"
+export ZSH_AI_OPENAI_MODEL="gpt-5.4-mini"
 export ZSH_AI_GEMINI_MODEL="gemini-2.5-flash"
 export ZSH_AI_OLLAMA_MODEL="llama3.2"
 export ZSH_AI_MISTRAL_MODEL="mistral-small-latest"
-export ZSH_AI_GROK_MODEL="grok-4-1-fast-non-reasoning"
-export ZSH_AI_QWEN_MODEL="qwen-plus"
+export ZSH_AI_GROK_MODEL="grok-4.3"
+export ZSH_AI_QWEN_MODEL="qwen-flash"
 ```
 
 Provider URLs are configurable too:
