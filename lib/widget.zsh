@@ -7,7 +7,7 @@ _zsh_ai_accept_line() {
     local trigger="${ZSH_AI_TRIGGER:-# }"
 
     # Check if the line starts with the configured trigger and handle multiline input
-    if [[ -n "$trigger" && "$BUFFER" == "$trigger"* ]]; then
+    if [[ "$BUFFER" == "$trigger"* ]]; then
         # Check if buffer contains newlines (multiline command)
         if [[ "$BUFFER" == *$'\n'* ]]; then
             # Multiline command detected - execute normally without AI processing
