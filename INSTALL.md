@@ -198,6 +198,24 @@ export ZSH_AI_QWEN_URL="https://dashscope.aliyuncs.com/compatible-mode/v1/chat/c
 export ZSH_AI_PROMPT_EXTEND="Prefer rg over grep, fd over find, and bat over cat."
 ```
 
+## Inline Trigger
+
+By default, lines starting with `# ` are sent to the AI when you press Enter. Both
+the trigger prefix and the hook itself are configurable:
+
+```bash
+# Change the trigger (default is "# "). For example, use ,, to start a query:
+export ZSH_AI_TRIGGER=",,"
+
+# Disable the inline hook entirely. Lines starting with "# " behave as normal
+# shell comments again, and only the `zsh-ai "..."` command stays active.
+# Useful when pasting code blocks that contain "# comment" lines.
+export ZSH_AI_COMMENT_HOOK="false"
+```
+
+`ZSH_AI_COMMENT_HOOK` accepts `false`, `off`, `no`, `0`, or `disabled` (case
+insensitive) to turn the hook off; any other value keeps it on.
+
 ## Requirements
 
 - zsh 5.0+

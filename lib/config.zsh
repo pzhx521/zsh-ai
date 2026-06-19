@@ -18,6 +18,18 @@
 : ${ZSH_AI_MISTRAL_MODEL:="mistral-small-latest"}  # Default Mistral model
 : ${ZSH_AI_MISTRAL_URL:="https://api.mistral.ai/v1/chat/completions"}  # Default Mistral URL
 
+# Inline trigger configuration
+: ${ZSH_AI_COMMENT_HOOK:="true"}  # Set to false/off/no/0 to disable the inline trigger widget entirely
+: ${ZSH_AI_TRIGGER:="# "}  # Prompt prefix that triggers AI (e.g. ",," instead of "# ")
+
+# Return 0 if the inline trigger widget should be enabled, 1 otherwise
+_zsh_ai_comment_hook_enabled() {
+    case "${ZSH_AI_COMMENT_HOOK:l}" in
+        false|off|no|0|disabled) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
 # Optional: Extend the system prompt with custom instructions
 # ZSH_AI_PROMPT_EXTEND - Add custom instructions to the AI prompt without replacing the core prompt
 # Example: export ZSH_AI_PROMPT_EXTEND="Always prefer ripgrep (rg) over grep. Use modern CLI tools when available."

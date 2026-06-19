@@ -68,6 +68,9 @@ Full setup lives in [INSTALL.md](INSTALL.md).
 
 Type `#`, describe the job, then press Enter.
 
+The trigger is configurable, and the inline hook can be turned off entirely if you
+only want the `zsh-ai "..."` command — see [Configuration](#configuration).
+
 <img src="https://github.com/user-attachments/assets/eff46629-855c-41eb-9de3-a53040bd2654" alt="zsh-ai comment syntax demo" width="520">
 
 ```bash
@@ -102,6 +105,17 @@ Add command preferences without replacing the built-in quoting rules:
 
 ```bash
 export ZSH_AI_PROMPT_EXTEND="Prefer rg over grep, fd over find, and bat over cat."
+```
+
+Change the inline trigger, or disable the comment hook altogether (handy when you
+paste code blocks that start with `#` comments):
+
+```bash
+# Use ,, instead of "# " to start a query
+export ZSH_AI_TRIGGER=",,"
+
+# Disable the inline hook entirely; only `zsh-ai "..."` stays active
+export ZSH_AI_COMMENT_HOOK="false"
 ```
 
 ## Docs
