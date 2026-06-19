@@ -32,7 +32,7 @@ EOF
 
 test_openai_query_success() {
     export OPENAI_API_KEY="test-key"
-    export ZSH_AI_OPENAI_MODEL="gpt-5-mini"
+    export ZSH_AI_OPENAI_MODEL="gpt-5.4-mini"
 
     local result=$(_zsh_ai_query_openai "list files")
     assert_equals "$result" "ls -la"
@@ -40,7 +40,7 @@ test_openai_query_success() {
 
 test_openai_query_error_response() {
     export OPENAI_API_KEY="test-key"
-    export ZSH_AI_OPENAI_MODEL="gpt-5-mini"
+    export ZSH_AI_OPENAI_MODEL="gpt-5.4-mini"
     
     # Override curl to return an error
     curl() {
@@ -63,7 +63,7 @@ EOF
 
 test_openai_json_escaping() {
     export OPENAI_API_KEY="test-key"
-    export ZSH_AI_OPENAI_MODEL="gpt-5-mini"
+    export ZSH_AI_OPENAI_MODEL="gpt-5.4-mini"
     
     # Test with special characters
     local result=$(_zsh_ai_query_openai "test \"quotes\" and \$variables")
@@ -73,7 +73,7 @@ test_openai_json_escaping() {
 
 test_handles_response_with_newline() {
     export OPENAI_API_KEY="test-key"
-    export ZSH_AI_OPENAI_MODEL="gpt-5-mini"
+    export ZSH_AI_OPENAI_MODEL="gpt-5.4-mini"
     export ZSH_AI_OPENAI_URL="https://api.openai.com/v1/chat/completions"
 
     # Override curl to return response with newline
@@ -101,7 +101,7 @@ EOF
 
 test_handles_response_without_jq() {
     export OPENAI_API_KEY="test-key"
-    export ZSH_AI_OPENAI_MODEL="gpt-5-mini"
+    export ZSH_AI_OPENAI_MODEL="gpt-5.4-mini"
 
     # Mock jq as unavailable
     command() {
@@ -198,7 +198,7 @@ test_uses_max_completion_tokens_for_o1_models() {
 }
 
 test_omits_temperature_for_gpt5_models() {
-    local captured_payload=$(capture_openai_payload_for_model "gpt-5-mini")
+    local captured_payload=$(capture_openai_payload_for_model "gpt-5.4-mini")
     assert_not_contains "$captured_payload" '"temperature"'
 }
 
@@ -334,7 +334,7 @@ test_openai_zsh_ai_key_takes_precedence() {
     export OPENAI_API_KEY="original-key"
     export ZSH_AI_OPENAI_API_KEY="override-key"
     export ZSH_AI_PROVIDER="openai"
-    export ZSH_AI_OPENAI_MODEL="gpt-5-mini"
+    export ZSH_AI_OPENAI_MODEL="gpt-5.4-mini"
     export ZSH_AI_OPENAI_URL="https://api.openai.com/v1/chat/completions"
     local curl_args_file=$(mktemp)
 
@@ -367,7 +367,7 @@ test_openai_falls_back_to_openai_api_key() {
     unset ZSH_AI_OPENAI_API_KEY
     export OPENAI_API_KEY="fallback-key"
     export ZSH_AI_PROVIDER="openai"
-    export ZSH_AI_OPENAI_MODEL="gpt-5-mini"
+    export ZSH_AI_OPENAI_MODEL="gpt-5.4-mini"
     export ZSH_AI_OPENAI_URL="https://api.openai.com/v1/chat/completions"
     local curl_args_file=$(mktemp)
 

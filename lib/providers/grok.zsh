@@ -31,7 +31,8 @@ _zsh_ai_query_grok() {
         }
     ],
     "max_completion_tokens": 256,
-    "temperature": 0.3
+    "temperature": 0.3,
+    "reasoning_effort": "none"
 }
 EOF
 )

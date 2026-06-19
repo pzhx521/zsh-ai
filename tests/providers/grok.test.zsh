@@ -32,7 +32,7 @@ EOF
 
 test_grok_query_success() {
     export XAI_API_KEY="test-key"
-    export ZSH_AI_GROK_MODEL="grok-4-1-fast-non-reasoning"
+    export ZSH_AI_GROK_MODEL="grok-4.3"
 
     local result=$(_zsh_ai_query_grok "list files")
     assert_equals "$result" "ls -la"
@@ -40,7 +40,7 @@ test_grok_query_success() {
 
 test_grok_query_error_response() {
     export XAI_API_KEY="test-key"
-    export ZSH_AI_GROK_MODEL="grok-4-1-fast-non-reasoning"
+    export ZSH_AI_GROK_MODEL="grok-4.3"
 
     # Override curl to return an error
     curl() {
@@ -63,7 +63,7 @@ EOF
 
 test_grok_json_escaping() {
     export XAI_API_KEY="test-key"
-    export ZSH_AI_GROK_MODEL="grok-4-1-fast-non-reasoning"
+    export ZSH_AI_GROK_MODEL="grok-4.3"
 
     # Test with special characters
     local result=$(_zsh_ai_query_grok "test \"quotes\" and \$variables")
@@ -73,7 +73,7 @@ test_grok_json_escaping() {
 
 test_handles_response_with_newline() {
     export XAI_API_KEY="test-key"
-    export ZSH_AI_GROK_MODEL="grok-4-1-fast-non-reasoning"
+    export ZSH_AI_GROK_MODEL="grok-4.3"
 
     # Override curl to return response with newline
     curl() {
@@ -100,7 +100,7 @@ EOF
 
 test_handles_response_without_jq() {
     export XAI_API_KEY="test-key"
-    export ZSH_AI_GROK_MODEL="grok-4-1-fast-non-reasoning"
+    export ZSH_AI_GROK_MODEL="grok-4.3"
 
     # Mock jq as unavailable
     command() {
@@ -125,7 +125,7 @@ test_handles_response_without_jq() {
 
 test_uses_configurable_api_url() {
     export XAI_API_KEY="test-key"
-    export ZSH_AI_GROK_MODEL="grok-4-1-fast-non-reasoning"
+    export ZSH_AI_GROK_MODEL="grok-4.3"
     export ZSH_AI_GROK_URL="https://custom.grok.api/v1/chat/completions"
 
     # Override curl to check the custom URL is used
@@ -144,9 +144,10 @@ test_uses_configurable_api_url() {
     export ZSH_AI_GROK_URL="https://api.x.ai/v1/chat/completions"
 }
 
-test_uses_max_completion_tokens() {
+# Capture the JSON --data payload sent to the Grok API
+capture_grok_payload() {
     export XAI_API_KEY="test-key"
-    export ZSH_AI_GROK_MODEL="grok-4-1-fast-non-reasoning"
+    export ZSH_AI_GROK_MODEL="grok-4.3"
     local payload_file=$(mktemp)
 
     curl() {
@@ -168,17 +169,25 @@ test_uses_max_completion_tokens() {
     _zsh_ai_query_grok "test" >/dev/null
     local captured_payload=$(cat "$payload_file")
     rm -f "$payload_file"
-    assert_contains "$captured_payload" '"max_completion_tokens"'
+    printf "%s" "$captured_payload"
+}
+
+test_uses_max_completion_tokens() {
+    assert_contains "$(capture_grok_payload)" '"max_completion_tokens"'
 }
 
 test_uses_xai_api_key() {
     export XAI_API_KEY="test-secret-key"
-    export ZSH_AI_GROK_MODEL="grok-4-1-fast-non-reasoning"
+    export ZSH_AI_GROK_MODEL="grok-4.3"
 
     # Test that the function uses XAI_API_KEY (not OPENAI_API_KEY)
     # If XAI_API_KEY is set, the query should succeed
     local result=$(_zsh_ai_query_grok "test")
     assert_not_empty "$result"
+}
+
+test_uses_reasoning_effort_none() {
+    assert_contains "$(capture_grok_payload)" '"reasoning_effort": "none"'
 }
 
 # Run tests
@@ -190,5 +199,6 @@ run_test "Handles response with trailing newline" test_handles_response_with_new
 run_test "Handles response without jq and with newline" test_handles_response_without_jq
 run_test "Uses configurable API URL (ZSH_AI_GROK_URL)" test_uses_configurable_api_url
 run_test "Uses max_completion_tokens parameter" test_uses_max_completion_tokens
+run_test "Uses reasoning_effort=none parameter" test_uses_reasoning_effort_none
 run_test "Uses XAI_API_KEY environment variable" test_uses_xai_api_key
 finish_tests
