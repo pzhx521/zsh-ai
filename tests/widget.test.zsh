@@ -503,7 +503,7 @@ test_default_hash_ignored_when_trigger_changed() {
 
     assert_equals "$ACCEPT_LINE_CALLED" "1"
 
-    unset ZSH_AI_TRIGGER
+    export ZSH_AI_TRIGGER="# "
     teardown_test_env
 }
 
