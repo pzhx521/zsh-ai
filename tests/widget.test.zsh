@@ -426,6 +426,87 @@ test_handles_commands_with_special_characters() {
     teardown_test_env
 }
 
+test_init_widget_skips_registration_when_disabled() {
+    setup_test_env
+    export ZSH_AI_PROVIDER="anthropic"
+    export ANTHROPIC_API_KEY="test-key"
+    export ZSH_AI_COMMENT_HOOK="false"
+
+    # Track add-zsh-hook calls
+    typeset -ga HOOK_CALLS
+    HOOK_CALLS=()
+    add-zsh-hook() {
+        HOOK_CALLS+=("$1:$2:$3")
+    }
+    autoload() { :; }
+
+    _zsh_ai_init_widget
+
+    # No precmd hook should have been registered
+    assert_equals "${#HOOK_CALLS[@]}" "0"
+
+    unset ZSH_AI_COMMENT_HOOK
+    teardown_test_env
+}
+
+test_custom_trigger_is_processed() {
+    setup_test_env
+    export ZSH_AI_PROVIDER="anthropic"
+    export ANTHROPIC_API_KEY="test-key"
+    export ZSH_AI_TRIGGER=",,"
+
+    # Echo back the query so we can verify the trigger prefix was stripped.
+    # The widget runs this in a background subshell and reads its stdout from a
+    # temp file, so we rely on a real temp file rather than mocking cat/mktemp.
+    _zsh_ai_execute_command() {
+        printf "query:%s" "$1"
+    }
+
+    mock_command "kill" "" 1
+
+    local RESET_PROMPT_CALLED=0
+    zle() {
+        case "$1" in
+            "reset-prompt") RESET_PROMPT_CALLED=1 ;;
+        esac
+    }
+
+    BUFFER=",,list all files"
+    CURSOR=0
+
+    _zsh_ai_accept_line
+
+    # Buffer holds the command produced from the query with the ",," stripped
+    assert_equals "$BUFFER" "query:list all files"
+    assert_equals "$RESET_PROMPT_CALLED" "1"
+
+    unset ZSH_AI_TRIGGER
+    teardown_test_env
+}
+
+test_default_hash_ignored_when_trigger_changed() {
+    setup_test_env
+    export ZSH_AI_PROVIDER="anthropic"
+    export ANTHROPIC_API_KEY="test-key"
+    export ZSH_AI_TRIGGER=",,"
+
+    local ACCEPT_LINE_CALLED=0
+    zle() {
+        case "$1" in
+            ".accept-line") ACCEPT_LINE_CALLED=1 ;;
+        esac
+    }
+
+    # With a custom trigger, a leading "# " is a normal comment, not a query
+    BUFFER="# list files"
+    _zsh_ai_accept_line
+
+    assert_equals "$ACCEPT_LINE_CALLED" "1"
+
+    unset ZSH_AI_TRIGGER
+    teardown_test_env
+}
+
 # Run tests
 echo "Running widget tests..."
 run_test "Widget initialization registers precmd hook" test_widget_initialization_registers_precmd_hook
@@ -439,4 +520,7 @@ run_test "Preserves original buffer during animation" test_preserves_original_bu
 run_test "Handles empty API response" test_handles_empty_api_response
 run_test "Uses temporary file for API response" test_uses_temporary_file_for_api_response
 run_test "Handles commands with special characters" test_handles_commands_with_special_characters
+run_test "Init widget skips registration when disabled" test_init_widget_skips_registration_when_disabled
+run_test "Custom trigger is processed" test_custom_trigger_is_processed
+run_test "Default '# ' ignored when trigger changed" test_default_hash_ignored_when_trigger_changed
 finish_tests
