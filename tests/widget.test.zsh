@@ -480,7 +480,7 @@ test_custom_trigger_is_processed() {
     assert_equals "$BUFFER" "query:list all files"
     assert_equals "$RESET_PROMPT_CALLED" "1"
 
-    unset ZSH_AI_TRIGGER
+    export ZSH_AI_TRIGGER="# "
     teardown_test_env
 }
 
