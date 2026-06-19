@@ -9,8 +9,7 @@ Install the plugin files first, then choose a provider, then load `zsh-ai`. Prov
 ### Homebrew
 
 ```bash
-brew tap matheusml/zsh-ai
-brew install zsh-ai
+brew install matheusml/zsh-ai/zsh-ai
 ```
 
 ### Oh My Zsh

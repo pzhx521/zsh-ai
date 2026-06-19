@@ -26,8 +26,7 @@ It is also small by design: zsh plus `curl` and `perl`, no Node runtime, no Pyth
 ## Install
 
 ```bash
-brew tap matheusml/zsh-ai
-brew install zsh-ai
+brew install matheusml/zsh-ai/zsh-ai
 ```
 
 Add this to `~/.zshrc`, with the API key above the `source` line:
