@@ -66,26 +66,11 @@ _zsh_ai_get_directory_context() {
 }
 
 # Function to build context
+#
+# Privacy note: only the OS type is sent to the model. The directory path, file
+# listing, project type, and git branch/status are intentionally NOT included,
+# since they can leak internal paths, secret file names, and project codenames.
+# The helper functions above are kept for reuse but are no longer wired in here.
 _zsh_ai_build_context() {
-    local context=""
-    
-    # Add directory context
-    context="$(_zsh_ai_get_directory_context)"
-    
-    # Add project type
-    local project_type=$(_zsh_ai_detect_project_type)
-    if [[ "$project_type" != "unknown" ]]; then
-        context="$context\nProject type: $project_type"
-    fi
-    
-    # Add git context
-    local git_context=$(_zsh_ai_get_git_context)
-    if [[ -n "$git_context" ]]; then
-        context="$context\n$git_context"
-    fi
-    
-    # Add OS context
-    context="$context\nOS: $(uname -s)"
-    
-    echo "$context"
+    echo "OS: $(uname -s)"
 }

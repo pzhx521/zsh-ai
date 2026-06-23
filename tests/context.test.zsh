@@ -299,52 +299,50 @@ test_shows_file_count_for_many_files() {
 }
 
 # Context building tests
-test_builds_complete_context() {
+# build_context is privacy-minimal: it emits only the OS type. Directory, file
+# listing, project type, and git info must NOT leak into the prompt context.
+test_build_context_contains_only_os() {
     setup_test_env
     local TEST_DIR=$(create_test_dir)
     cd "$TEST_DIR"
-    
+
     touch package.json
     git init >/dev/null 2>&1
     local output=$(_zsh_ai_build_context)
-    assert_contains "$output" "Current directory:"
-    assert_contains "$output" "Project type: node"
-    assert_contains "$output" "Git:"
     assert_contains "$output" "OS:"
-    
+
     cd - >/dev/null 2>&1
     cleanup_test_dir "$TEST_DIR"
     teardown_test_env
 }
 
-test_builds_context_without_git() {
+test_build_context_excludes_directory() {
     setup_test_env
     local TEST_DIR=$(create_test_dir)
     cd "$TEST_DIR"
-    
+
+    touch secret.env id_rsa
+    local output=$(_zsh_ai_build_context)
+    assert_not_contains "$output" "Current directory:"
+    assert_not_contains "$output" "Files:"
+    assert_not_contains "$output" "secret.env"
+
+    cd - >/dev/null 2>&1
+    cleanup_test_dir "$TEST_DIR"
+    teardown_test_env
+}
+
+test_build_context_excludes_project_and_git() {
+    setup_test_env
+    local TEST_DIR=$(create_test_dir)
+    cd "$TEST_DIR"
+
     touch requirements.txt
+    git init >/dev/null 2>&1
     local output=$(_zsh_ai_build_context)
-    assert_contains "$output" "Current directory:"
-    assert_contains "$output" "Project type: python"
-    assert_contains "$output" "OS:"
-    assert_not_contains "$output" "Git:"
-    
-    cd - >/dev/null 2>&1
-    cleanup_test_dir "$TEST_DIR"
-    teardown_test_env
-}
-
-test_builds_context_for_unknown_project() {
-    setup_test_env
-    local TEST_DIR=$(create_test_dir)
-    cd "$TEST_DIR"
-    
-    touch random.txt
-    local output=$(_zsh_ai_build_context)
-    assert_contains "$output" "Current directory:"
     assert_not_contains "$output" "Project type:"
-    assert_contains "$output" "OS:"
-    
+    assert_not_contains "$output" "Git:"
+
     cd - >/dev/null 2>&1
     cleanup_test_dir "$TEST_DIR"
     teardown_test_env
@@ -386,8 +384,8 @@ run_test "Shows current directory in context" test_shows_current_directory_in_co
 run_test "Lists files when less than 20" test_lists_files_when_less_than_20
 run_test "Truncates file list at 10 files" test_truncates_file_list_at_10_files
 run_test "Shows file count for directories with many files" test_shows_file_count_for_many_files
-run_test "Builds complete context" test_builds_complete_context
-run_test "Builds context without git" test_builds_context_without_git
-run_test "Builds context for unknown project" test_builds_context_for_unknown_project
+run_test "Build context contains only OS" test_build_context_contains_only_os
+run_test "Build context excludes directory and files" test_build_context_excludes_directory
+run_test "Build context excludes project type and git" test_build_context_excludes_project_and_git
 run_test "Includes OS information" test_includes_os_information
 finish_tests
