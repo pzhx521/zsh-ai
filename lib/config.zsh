@@ -30,6 +30,44 @@ _zsh_ai_comment_hook_enabled() {
     esac
 }
 
+# Safety configuration -------------------------------------------------------
+: ${ZSH_AI_SAFETY:="true"}            # Master toggle for blacklist + risk coloring
+: ${ZSH_AI_BLACKLIST_ACTION:="block"} # block = refuse to fill buffer; warn = fill but flag in red
+
+# Chinese / CJK auto-detection -----------------------------------------------
+# When enabled, a line containing CJK characters is routed to the AI even
+# without the "# " trigger. Disable if you frequently run commands that embed
+# Chinese literals (e.g. echo 你好) and want them executed verbatim.
+: ${ZSH_AI_CHINESE_DETECT:="true"}
+
+# Risk-level colors (zsh highlight specs used for region_highlight) ----------
+: ${ZSH_AI_COLOR_BLOCKED:="fg=white,bold"}
+: ${ZSH_AI_COLOR_HIGH:="fg=red,bold"}
+: ${ZSH_AI_COLOR_MEDIUM:="fg=yellow"}
+: ${ZSH_AI_COLOR_SAFE:="fg=green"}
+
+# Optional user-defined pattern arrays (POSIX ERE), checked in addition to the
+# built-in defaults in lib/safety.zsh:
+#   ZSH_AI_BLACKLIST_PATTERNS   - extra patterns treated as "blocked"
+#   ZSH_AI_HIGH_RISK_PATTERNS   - extra patterns treated as "high" risk
+#   ZSH_AI_MEDIUM_RISK_PATTERNS - extra patterns treated as "medium" risk
+
+# Return 0 if safety (blacklist + risk coloring) is enabled, 1 otherwise
+_zsh_ai_safety_enabled() {
+    case "${ZSH_AI_SAFETY:l}" in
+        false|off|no|0|disabled) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+# Return 0 if Chinese/CJK auto-detection is enabled, 1 otherwise
+_zsh_ai_chinese_detect_enabled() {
+    case "${ZSH_AI_CHINESE_DETECT:l}" in
+        false|off|no|0|disabled) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
 # Optional: Extend the system prompt with custom instructions
 # ZSH_AI_PROMPT_EXTEND - Add custom instructions to the AI prompt without replacing the core prompt
 # Example: export ZSH_AI_PROMPT_EXTEND="Always prefer ripgrep (rg) over grep. Use modern CLI tools when available."

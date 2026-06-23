@@ -5,18 +5,26 @@
 # Custom widget to intercept Enter key
 _zsh_ai_accept_line() {
     local trigger="${ZSH_AI_TRIGGER:-# }"
+    local query=""
+    local _zsh_ai_matched=0
 
-    # Check if the line starts with the configured trigger and handle multiline input
+    # Decide whether this line should be sent to the AI:
+    #   1. it starts with the configured trigger (default "# "), or
+    #   2. Chinese auto-detection is on and the line contains CJK characters.
     if [[ "$BUFFER" == "$trigger"* ]]; then
-        # Check if buffer contains newlines (multiline command)
+        _zsh_ai_matched=1
+        query="${BUFFER#"$trigger"}"
+    elif _zsh_ai_chinese_detect_enabled && [[ "$BUFFER" != *$'\n'* ]] && _zsh_ai_contains_cjk "$BUFFER"; then
+        _zsh_ai_matched=1
+        query="$BUFFER"
+    fi
+
+    if (( _zsh_ai_matched )); then
+        # Multiline command detected - execute normally without AI processing
         if [[ "$BUFFER" == *$'\n'* ]]; then
-            # Multiline command detected - execute normally without AI processing
             zle .accept-line
             return
         fi
-
-        # Extract the query (remove the trigger prefix)
-        local query="${BUFFER#"$trigger"}"
         
         # Add a loading indicator with animation
         local saved_buffer="$BUFFER"
@@ -55,11 +63,36 @@ _zsh_ai_accept_line() {
         rm -f "$tmpfile"
         
         if [[ $exit_code -eq 0 ]] && [[ -n "$cmd" ]] && [[ "$cmd" != "Error:"* ]] && [[ "$cmd" != "API Error:"* ]]; then
-            # Simply replace the buffer with the generated command
-            BUFFER="$cmd"
+            # Classify the generated command's risk (when safety is enabled)
+            local risk="safe"
+            _zsh_ai_safety_enabled && risk="$(_zsh_ai_risk_level "$cmd")"
 
-            # Move cursor to end of line
-            CURSOR=$#BUFFER
+            if [[ "$risk" == "blocked" ]] && [[ "${ZSH_AI_BLACKLIST_ACTION:l}" != "warn" ]]; then
+                # Blacklisted command - refuse to place it in the buffer
+                echo ""
+                print -P "%F{red}⛔ zsh-ai 拦截了一条黑名单命令,已拒绝填入:%f"
+                print -P "%F{red}   $cmd%f"
+                echo ""
+                BUFFER="$saved_buffer"
+                CURSOR=$#BUFFER
+                sleep 0.5
+            else
+                # Replace the buffer with the generated command (never auto-executed)
+                BUFFER="$cmd"
+                CURSOR=$#BUFFER
+
+                if _zsh_ai_safety_enabled; then
+                    # Color the whole command by risk level
+                    local style="$(_zsh_ai_risk_color "$risk")"
+                    [[ -n "$style" ]] && region_highlight=("0 ${#BUFFER} ${style}")
+
+                    # Surface a short note for risky commands
+                    if [[ "$risk" == "high" || "$risk" == "blocked" ]]; then
+                        echo ""
+                        print -P "%F{red}$(_zsh_ai_risk_label "$risk")%f"
+                    fi
+                fi
+            fi
         else
             # Show error - keep it visible
             echo ""  # New line for better visibility

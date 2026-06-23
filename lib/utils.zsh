@@ -119,6 +119,14 @@ zsh-ai() {
     rm -f "$tmpfile"
     
     if [[ $exit_code -eq 0 ]] && [[ -n "$cmd" ]] && [[ "$cmd" != "Error:"* ]] && [[ "$cmd" != "API Error:"* ]]; then
+        # Refuse blacklisted commands before pushing them onto the buffer
+        if (( ${+functions[_zsh_ai_risk_level]} )) && _zsh_ai_safety_enabled && \
+           [[ "$(_zsh_ai_risk_level "$cmd")" == "blocked" ]] && \
+           [[ "${ZSH_AI_BLACKLIST_ACTION:l}" != "warn" ]]; then
+            print -P "%F{red}⛔ zsh-ai 拦截了一条黑名单命令,已拒绝填入:%f"
+            print -P "%F{red}$cmd%f"
+            return 1
+        fi
         # Put the command in the ZLE buffer (same as # method)
         print -z "$cmd"
     else

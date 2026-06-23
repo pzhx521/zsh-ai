@@ -5,6 +5,7 @@ source "${0:A:h}/test_helper.zsh"
 
 # Load required modules
 source "$PLUGIN_DIR/lib/config.zsh"
+source "$PLUGIN_DIR/lib/safety.zsh"
 source "$PLUGIN_DIR/lib/context.zsh"
 source "$PLUGIN_DIR/lib/utils.zsh"
 source "$PLUGIN_DIR/lib/widget.zsh"
@@ -507,6 +508,95 @@ test_default_hash_ignored_when_trigger_changed() {
     teardown_test_env
 }
 
+test_chinese_input_is_processed() {
+    setup_test_env
+    export ZSH_AI_PROVIDER="anthropic"
+    export ANTHROPIC_API_KEY="test-key"
+    export ZSH_AI_CHINESE_DETECT="true"
+
+    # Background subshell reads stdout via a real temp file (see custom trigger test)
+    _zsh_ai_execute_command() {
+        printf "ls -la"
+    }
+
+    mock_command "kill" "" 1
+
+    local RESET_PROMPT_CALLED=0
+    zle() {
+        case "$1" in
+            "reset-prompt") RESET_PROMPT_CALLED=1 ;;
+        esac
+    }
+
+    BUFFER="列出当前目录所有文件"
+    CURSOR=0
+
+    _zsh_ai_accept_line
+
+    # Chinese input was routed to the AI without a "# " prefix
+    assert_equals "$BUFFER" "ls -la"
+    assert_equals "$RESET_PROMPT_CALLED" "1"
+
+    unset ZSH_AI_CHINESE_DETECT
+    teardown_test_env
+}
+
+test_chinese_input_ignored_when_disabled() {
+    setup_test_env
+    export ZSH_AI_PROVIDER="anthropic"
+    export ANTHROPIC_API_KEY="test-key"
+    export ZSH_AI_CHINESE_DETECT="false"
+
+    local ACCEPT_LINE_CALLED=0
+    zle() {
+        case "$1" in
+            ".accept-line") ACCEPT_LINE_CALLED=1 ;;
+        esac
+    }
+
+    BUFFER="echo 你好"
+    _zsh_ai_accept_line
+
+    # With detection off, a Chinese-containing line runs as a normal command
+    assert_equals "$ACCEPT_LINE_CALLED" "1"
+
+    unset ZSH_AI_CHINESE_DETECT
+    teardown_test_env
+}
+
+test_blacklisted_command_is_refused() {
+    setup_test_env
+    export ZSH_AI_PROVIDER="anthropic"
+    export ANTHROPIC_API_KEY="test-key"
+    export ZSH_AI_SAFETY="true"
+    export ZSH_AI_BLACKLIST_ACTION="block"
+
+    # AI returns a catastrophic command
+    _zsh_ai_execute_command() {
+        printf "rm -rf /"
+    }
+
+    mock_command "kill" "" 1
+    mock_command "sleep" "" 0
+
+    zle() {
+        case "$1" in
+            "reset-prompt") ;;
+        esac
+    }
+
+    BUFFER="# wipe the disk"
+    CURSOR=0
+
+    _zsh_ai_accept_line
+
+    # Blacklisted command must NOT be placed in the buffer; original is restored
+    assert_equals "$BUFFER" "# wipe the disk"
+
+    unset ZSH_AI_SAFETY ZSH_AI_BLACKLIST_ACTION
+    teardown_test_env
+}
+
 # Run tests
 echo "Running widget tests..."
 run_test "Widget initialization registers precmd hook" test_widget_initialization_registers_precmd_hook
@@ -523,4 +613,7 @@ run_test "Handles commands with special characters" test_handles_commands_with_s
 run_test "Init widget skips registration when disabled" test_init_widget_skips_registration_when_disabled
 run_test "Custom trigger is processed" test_custom_trigger_is_processed
 run_test "Default '# ' ignored when trigger changed" test_default_hash_ignored_when_trigger_changed
+run_test "Chinese input is processed" test_chinese_input_is_processed
+run_test "Chinese input ignored when disabled" test_chinese_input_ignored_when_disabled
+run_test "Blacklisted command is refused" test_blacklisted_command_is_refused
 finish_tests

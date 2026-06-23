@@ -91,6 +91,61 @@ $ find . -type f -size +50M -mtime -7
 
 The command is pushed into your prompt with `print -z`, ready to edit or run.
 
+### Chinese / natural-language auto-detection
+
+You don't always need the `#` trigger. When a line contains Chinese (CJK)
+characters, it is sent to the AI automatically:
+
+```bash
+$ 找出占用 8080 端口的进程并杀掉
+$ lsof -ti:8080 | xargs kill -9
+```
+
+The model detects your OS and shell from the context, so the same request maps
+to the right command on Linux or macOS. Turn detection off if you frequently run
+commands that embed Chinese literals (e.g. `echo 你好`):
+
+```bash
+export ZSH_AI_CHINESE_DETECT="false"
+```
+
+### Safety: blacklist + risk coloring
+
+Generated commands are never auto-executed — they land in your prompt for you to
+confirm. On top of that, `zsh-ai` classifies every generated command:
+
+- **blocked** — catastrophic commands (`rm -rf /`, fork bombs, `mkfs`, `dd` to a
+  disk, `chmod -R 777 /`, …). By default these are *refused* and never placed in
+  your prompt.
+- **high** (red) — `sudo`, `rm -rf <dir>`, `curl … | sh`, `git push --force`, …
+- **medium** (yellow) — `rm`, `mv`, `kill`, `git reset --hard`, package installs, …
+- **safe** (green) — everything else.
+
+The generated command is colored by risk level, and high-risk/blocked commands
+print a short warning.
+
+```bash
+# Disable the whole safety layer
+export ZSH_AI_SAFETY="false"
+
+# Fill blacklisted commands anyway (colored red) instead of refusing them
+export ZSH_AI_BLACKLIST_ACTION="warn"
+
+# Customize colors (any zsh highlight spec)
+export ZSH_AI_COLOR_HIGH="fg=red,bold"
+export ZSH_AI_COLOR_MEDIUM="fg=yellow"
+export ZSH_AI_COLOR_SAFE="fg=green"
+
+# Add your own patterns (POSIX ERE); these extend the built-in defaults
+export ZSH_AI_BLACKLIST_PATTERNS=('(^|[[:space:]])terraform[[:space:]]+destroy')
+export ZSH_AI_HIGH_RISK_PATTERNS=('(^|[[:space:]])kubectl[[:space:]]+delete')
+export ZSH_AI_MEDIUM_RISK_PATTERNS=()
+```
+
+> Note: if you use [zsh-syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting),
+> it manages `region_highlight` on every redraw and will override the risk color.
+> The blacklist refusal and warnings still work regardless.
+
 ## Configuration
 
 Switch providers with `ZSH_AI_PROVIDER`:

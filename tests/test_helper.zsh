@@ -194,6 +194,7 @@ teardown_test_env() {
     unfunction command 2>/dev/null
     unfunction jq 2>/dev/null
     unfunction curl 2>/dev/null
+    unfunction print 2>/dev/null
     unset ZSH_AI_PROVIDER
     unset ANTHROPIC_API_KEY
     unset ZSH_AI_MODEL
