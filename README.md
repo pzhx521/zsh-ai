@@ -93,17 +93,7 @@ The command is pushed into your prompt with `print -z`, ready to edit or run.
 
 ### Output format
 
-The model is asked to return a single JSON object, and the plugin shows the
-explanation and key parameters above your prompt while placing only the command
-in the editable buffer:
-
-```text
-ℹ 删除 7 天前的日志文件。
-↳ -mtime +7 = 超过 7 天;-delete 删除匹配项。
-$ find . -name '*.log' -mtime +7 -delete
-```
-
-The JSON contract (see `lib/utils.zsh`):
+The model returns a single JSON object describing the command:
 
 ```json
 {
@@ -116,6 +106,39 @@ The JSON contract (see `lib/utils.zsh`):
 The explanation/parameters follow the language of your request (Chinese in,
 Chinese out). If a model ever replies with plain text instead of JSON, the
 whole reply is used as the command, so nothing breaks.
+
+#### Box mode (default)
+
+By default the command, explanation, parameters, and a confirmation warning are
+shown inside a framed box, and **the input line is left empty** — the command is
+never pasted into your prompt, so you can't run it by accident. Copy or retype
+it once you've confirmed it:
+
+```text
+╭────────────────────────────────────────────╮
+│ find . -name '*.log' -mtime +7 -delete       │
+├────────────────────────────────────────────┤
+│ 说明  删除 7 天前的日志文件。                  │
+│ 参数  -mtime +7 超过7天;-delete 删除匹配项。   │
+├────────────────────────────────────────────┤
+│ !! 请人工确认无误后再执行                      │
+╰────────────────────────────────────────────╯
+```
+
+The command is colored by risk level, and the warning escalates for high-risk
+(`!! 高危命令`) and blacklisted (`XX 命中黑名单`) commands.
+
+#### Buffer mode
+
+Prefer the command dropped straight into your editable prompt (the original
+behavior)? Switch modes:
+
+```bash
+export ZSH_AI_OUTPUT_MODE="buffer"
+```
+
+In buffer mode the command lands in your prompt with the explanation shown
+above it, blacklisted commands are refused, and the command is colored by risk.
 
 ### Chinese / natural-language auto-detection
 

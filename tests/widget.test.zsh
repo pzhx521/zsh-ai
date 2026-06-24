@@ -628,6 +628,59 @@ test_json_response_puts_only_command_in_buffer() {
     teardown_test_env
 }
 
+test_box_mode_shows_box_and_clears_buffer() {
+    setup_test_env
+    export ZSH_AI_PROVIDER="anthropic"
+    export ANTHROPIC_API_KEY="test-key"
+    export ZSH_AI_OUTPUT_MODE="box"
+
+    _zsh_ai_execute_command() {
+        printf '%s' '{"command":"ls -la","explanation":"列出文件","parameters":"-l 详细"}'
+    }
+    mock_command "kill" "" 1
+
+    local printed=""
+    print() { printed+="$*"$'\n'; }
+    zle() { case "$1" in "reset-prompt") ;; esac }
+
+    BUFFER="# list files"
+    CURSOR=0
+    _zsh_ai_accept_line
+
+    # Command is NOT pasted into the prompt (prevents accidental execution)
+    assert_equals "$BUFFER" ""
+    # The box contains the command and the confirm-before-running warning
+    assert_contains "$printed" "ls -la"
+    assert_contains "$printed" "请人工确认无误后再执行"
+
+    teardown_test_env
+}
+
+test_box_mode_blocked_command_not_pasted() {
+    setup_test_env
+    export ZSH_AI_PROVIDER="anthropic"
+    export ANTHROPIC_API_KEY="test-key"
+    export ZSH_AI_OUTPUT_MODE="box"
+    export ZSH_AI_SAFETY="true"
+
+    _zsh_ai_execute_command() { printf '%s' 'rm -rf /'; }
+    mock_command "kill" "" 1
+
+    local printed=""
+    print() { printed+="$*"$'\n'; }
+    zle() { case "$1" in "reset-prompt") ;; esac }
+
+    BUFFER="# wipe the disk"
+    CURSOR=0
+    _zsh_ai_accept_line
+
+    assert_equals "$BUFFER" ""
+    assert_contains "$printed" "命中黑名单"
+    assert_contains "$printed" "rm -rf /"
+
+    teardown_test_env
+}
+
 # Run tests
 echo "Running widget tests..."
 run_test "Widget initialization registers precmd hook" test_widget_initialization_registers_precmd_hook
@@ -648,4 +701,6 @@ run_test "Chinese input is processed" test_chinese_input_is_processed
 run_test "Chinese input ignored when disabled" test_chinese_input_ignored_when_disabled
 run_test "Blacklisted command is refused" test_blacklisted_command_is_refused
 run_test "JSON response puts only command in buffer" test_json_response_puts_only_command_in_buffer
+run_test "Box mode shows box and clears buffer" test_box_mode_shows_box_and_clears_buffer
+run_test "Box mode blocked command not pasted" test_box_mode_blocked_command_not_pasted
 finish_tests

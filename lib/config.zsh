@@ -30,6 +30,12 @@ _zsh_ai_comment_hook_enabled() {
     esac
 }
 
+# Output mode ----------------------------------------------------------------
+# box    = show the command + explanation + parameters inside a framed box and
+#          leave the input line EMPTY (you copy/retype to run -> avoids misfires)
+# buffer = paste the command into the editable prompt for you to confirm/run
+: ${ZSH_AI_OUTPUT_MODE:="box"}
+
 # Safety configuration -------------------------------------------------------
 : ${ZSH_AI_SAFETY:="true"}            # Master toggle for blacklist + risk coloring
 : ${ZSH_AI_BLACKLIST_ACTION:="block"} # block = refuse to fill buffer; warn = fill but flag in red

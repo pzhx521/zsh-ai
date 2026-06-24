@@ -79,6 +79,82 @@ _zsh_ai_render_response() {
     printf '%s' "$command_str"
 }
 
+# Display width of a string in terminal columns (CJK / fullwidth count as 2).
+# Matches the standard Unicode East Asian Wide/Fullwidth table.
+_zsh_ai_display_width() {
+    emulate -L zsh
+    setopt local_options multibyte
+    local s="$1"
+    integer w=0 i
+    local c
+    for (( i=1; i<=${#s}; i++ )); do
+        c="$s[i]"
+        if [[ "$c" == [$'ᄀ'-$'ᅟ'$'⺀'-$'〾'$'ぁ'-$'㏿'$'㐀'-$'䶿'$'一'-$'鿿'$'ꀀ'-$'꓏'$'가'-$'힣'$'豈'-$'﫿'$'︰'-$'﹏'$'＀'-$'｠'$'￠'-$'￦'] ]]; then
+            (( w += 2 ))
+        else
+            (( w += 1 ))
+        fi
+    done
+    echo $w
+}
+
+# Render the result inside a framed box: the command, its explanation and key
+# parameters, and a prominent "confirm before running" warning. Nothing is
+# placed in the editable prompt, so the command cannot be run by accident.
+# Output goes to stdout using raw ANSI codes (never `print -P`, so a command
+# containing `%` is safe).
+_zsh_ai_render_box() {
+    emulate -L zsh
+    setopt local_options multibyte
+    local command_str="$1" explanation="$2" params="$3" risk="$4"
+    local red=$'\e[31m' cyan=$'\e[36m' gray=$'\e[90m' yellow=$'\e[33m' green=$'\e[32m' bold=$'\e[1m' reset=$'\e[0m'
+
+    local cmd_color warn
+    case "$risk" in
+        blocked) cmd_color="$red";    warn="XX 命中黑名单,已拒绝,请勿手动执行" ;;
+        high)    cmd_color="$red";    warn="!! 高危命令 - 请人工确认无误后再执行" ;;
+        medium)  cmd_color="$yellow"; warn="!! 请人工确认无误后再执行" ;;
+        *)       cmd_color="$green";  warn="!! 请人工确认无误后再执行" ;;
+    esac
+
+    local -a texts colors
+    texts=("$command_str"); colors=("$cmd_color$bold")
+    [[ -n "$explanation" ]] && { texts+=("说明  $explanation"); colors+=("$cyan"); }
+    [[ -n "$params" ]] && { texts+=("参数  $params"); colors+=("$gray"); }
+    texts+=("$warn"); colors+=("$yellow$bold")
+
+    integer inner=0 w i n
+    local t
+    for t in "${texts[@]}"; do
+        w=$(_zsh_ai_display_width "$t"); (( w > inner )) && inner=$w
+    done
+    integer maxw=$(( ${COLUMNS:-80} - 4 )); (( maxw < 20 )) && maxw=20
+    (( inner > maxw )) && inner=$maxw
+
+    local hbar=""
+    for (( i=0; i<inner+2; i++ )); do hbar+="─"; done
+
+    _zsh_ai_box_line() {
+        local txt="$1" col="$2"
+        integer ww=$(_zsh_ai_display_width "$txt") pp j
+        pp=$(( inner - ww )); (( pp < 0 )) && pp=0
+        local sp=""; for (( j=0; j<pp; j++ )); do sp+=" "; done
+        print -r -- "${gray}│${reset} ${col}${txt}${reset}${sp} ${gray}│${reset}"
+    }
+
+    print -r -- "${gray}╭${hbar}╮${reset}"
+    _zsh_ai_box_line "${texts[1]}" "${colors[1]}"
+    print -r -- "${gray}├${hbar}┤${reset}"
+    n=${#texts[@]}
+    if (( n > 2 )); then
+        for (( i=2; i<n; i++ )); do _zsh_ai_box_line "${texts[i]}" "${colors[i]}"; done
+        print -r -- "${gray}├${hbar}┤${reset}"
+    fi
+    _zsh_ai_box_line "${texts[n]}" "${colors[n]}"
+    print -r -- "${gray}╰${hbar}╯${reset}"
+    unfunction _zsh_ai_box_line
+}
+
 # Main query function that routes to the appropriate provider
 _zsh_ai_query() {
     local query="$1"
@@ -177,20 +253,31 @@ zsh-ai() {
     rm -f "$tmpfile"
     
     if [[ $exit_code -eq 0 ]] && [[ -n "$cmd" ]] && [[ "$cmd" != "Error:"* ]] && [[ "$cmd" != "API Error:"* ]]; then
-        # Parse the JSON response: prints explanation/parameters, returns the command
-        local parsed_cmd
-        parsed_cmd="$(_zsh_ai_render_response "$cmd")"
+        if [[ "${ZSH_AI_OUTPUT_MODE:l}" == "buffer" ]]; then
+            # Legacy mode: paste the command into the prompt to confirm/run
+            local parsed_cmd
+            parsed_cmd="$(_zsh_ai_render_response "$cmd")"
 
-        # Refuse blacklisted commands before pushing them onto the buffer
-        if (( ${+functions[_zsh_ai_risk_level]} )) && _zsh_ai_safety_enabled && \
-           [[ "$(_zsh_ai_risk_level "$parsed_cmd")" == "blocked" ]] && \
-           [[ "${ZSH_AI_BLACKLIST_ACTION:l}" != "warn" ]]; then
-            print -P "%F{red}⛔ zsh-ai 拦截了一条黑名单命令,已拒绝填入:%f"
-            print -P "%F{red}$parsed_cmd%f"
-            return 1
+            # Refuse blacklisted commands before pushing them onto the buffer
+            if (( ${+functions[_zsh_ai_risk_level]} )) && _zsh_ai_safety_enabled && \
+               [[ "$(_zsh_ai_risk_level "$parsed_cmd")" == "blocked" ]] && \
+               [[ "${ZSH_AI_BLACKLIST_ACTION:l}" != "warn" ]]; then
+                print -P "%F{red}⛔ zsh-ai 拦截了一条黑名单命令,已拒绝填入:%f"
+                print -P "%F{red}$parsed_cmd%f"
+                return 1
+            fi
+            print -z "$parsed_cmd"
+        else
+            # Box mode: show everything framed; never paste into the prompt
+            local parsed_cmd explanation params risk="safe"
+            parsed_cmd="$(_zsh_ai_json_field "$cmd" command)"
+            [[ -z "$parsed_cmd" ]] && parsed_cmd="$cmd"
+            explanation="$(_zsh_ai_json_field "$cmd" explanation)"
+            params="$(_zsh_ai_json_field "$cmd" parameters)"
+            (( ${+functions[_zsh_ai_risk_level]} )) && _zsh_ai_safety_enabled && \
+                risk="$(_zsh_ai_risk_level "$parsed_cmd")"
+            _zsh_ai_render_box "$parsed_cmd" "$explanation" "$params" "$risk"
         fi
-        # Put the command in the ZLE buffer (same as # method)
-        print -z "$parsed_cmd"
     else
         # Show error with better visibility
         echo ""  # Blank line for spacing

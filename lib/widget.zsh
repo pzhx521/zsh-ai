@@ -77,8 +77,15 @@ _zsh_ai_accept_line() {
             local risk="safe"
             _zsh_ai_safety_enabled && risk="$(_zsh_ai_risk_level "$command_str")"
 
-            if [[ "$risk" == "blocked" ]] && [[ "${ZSH_AI_BLACKLIST_ACTION:l}" != "warn" ]]; then
-                # Blacklisted command - refuse to place it in the buffer
+            if [[ "${ZSH_AI_OUTPUT_MODE:l}" != "buffer" ]]; then
+                # Box mode: show everything framed and leave the prompt EMPTY so
+                # the command can never be run by accident.
+                echo ""
+                _zsh_ai_render_box "$command_str" "$explanation" "$params" "$risk"
+                BUFFER=""
+                CURSOR=0
+            elif [[ "$risk" == "blocked" ]] && [[ "${ZSH_AI_BLACKLIST_ACTION:l}" != "warn" ]]; then
+                # Buffer mode + blacklisted - refuse to place it in the buffer
                 echo ""
                 print -P "%F{red}⛔ zsh-ai 拦截了一条黑名单命令,已拒绝填入:%f"
                 print -P "%F{red}   $command_str%f"
@@ -87,7 +94,7 @@ _zsh_ai_accept_line() {
                 CURSOR=$#BUFFER
                 sleep 0.5
             else
-                # Replace the buffer with the generated command (never auto-executed)
+                # Buffer mode: replace the buffer with the command (not executed)
                 BUFFER="$command_str"
                 CURSOR=$#BUFFER
 

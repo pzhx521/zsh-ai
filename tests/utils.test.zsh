@@ -517,6 +517,35 @@ test_render_response_passes_through_plain_text() {
     teardown_test_env
 }
 
+test_box_mode_does_not_push_to_buffer() {
+    setup_test_env
+    export ZSH_AI_PROVIDER="anthropic"
+    export ANTHROPIC_API_KEY="test-key"
+    export ZSH_AI_OUTPUT_MODE="box"
+
+    _zsh_ai_query() { printf '%s' '{"command":"ls -la","explanation":"列出","parameters":""}'; }
+
+    # Capture any print -z; box mode must never push the command to the buffer
+    local buffer_cmd="__none__"
+    print() {
+        if [[ "$1" == "-z" ]]; then buffer_cmd="$2"; fi
+    }
+
+    zsh-ai "list files" >/dev/null 2>&1
+
+    assert_equals "$buffer_cmd" "__none__"
+
+    teardown_test_env
+}
+
+test_display_width_counts_cjk_as_two() {
+    setup_test_env
+    assert_equals "$(_zsh_ai_display_width 'abc')" "3"
+    assert_equals "$(_zsh_ai_display_width '中文')" "4"
+    assert_equals "$(_zsh_ai_display_width '说明：')" "6"
+    teardown_test_env
+}
+
 # Run tests
 echo "Running utils tests..."
 run_test "Routes to Anthropic provider when configured" test_routes_to_anthropic_provider
@@ -546,4 +575,6 @@ run_test "JSON field handles escaped quotes" test_json_field_handles_escaped_quo
 run_test "JSON field empty for non-json" test_json_field_empty_for_non_json
 run_test "Render response returns command for json" test_render_response_returns_command_for_json
 run_test "Render response passes through plain text" test_render_response_passes_through_plain_text
+run_test "Box mode does not push to buffer" test_box_mode_does_not_push_to_buffer
+run_test "Display width counts CJK as two" test_display_width_counts_cjk_as_two
 finish_tests

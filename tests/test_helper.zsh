@@ -182,7 +182,10 @@ setup_test_env() {
     export ZSH_AI_PROVIDER=""
     export ANTHROPIC_API_KEY=""
     export ZSH_AI_MODEL=""
-    
+    # Default tests to buffer mode so BUFFER/print-z assertions stay meaningful;
+    # box-mode tests opt in explicitly with ZSH_AI_OUTPUT_MODE=box.
+    export ZSH_AI_OUTPUT_MODE="buffer"
+
     # Reset mocks
     reset_mocks
 }
@@ -198,6 +201,7 @@ teardown_test_env() {
     unset ZSH_AI_PROVIDER
     unset ANTHROPIC_API_KEY
     unset ZSH_AI_MODEL
+    unset ZSH_AI_OUTPUT_MODE
     unset ZSH_AI_TEST_MODE
 }
 
