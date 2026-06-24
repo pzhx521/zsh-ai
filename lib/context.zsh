@@ -72,5 +72,10 @@ _zsh_ai_get_directory_context() {
 # since they can leak internal paths, secret file names, and project codenames.
 # The helper functions above are kept for reuse but are no longer wired in here.
 _zsh_ai_build_context() {
-    echo "OS: $(uname -s)"
+    local os="$(uname -s)"
+    case "$os" in
+        Darwin) echo "OS: Darwin (macOS, BSD coreutils)" ;;
+        Linux)  echo "OS: Linux (GNU coreutils)" ;;
+        *)      echo "OS: $os" ;;
+    esac
 }

@@ -19,7 +19,10 @@ It does not run the command for you. You read it first, edit it if needed, then 
 
 Most command help breaks your flow: search result, forum thread, copied snippet, little edits, fingers crossed.
 
-`zsh-ai` stays on the command line. It sends useful context with your request, including project type, nearby files, git state, and OS. That means "run tests" can become the right command for the directory you are already in.
+`zsh-ai` stays on the command line. For privacy it sends only your OS type as
+context (no path, file listing, project type, or git state), and the model uses
+it to pick platform-correct commands — the same request maps to BSD flags on
+macOS and GNU flags on Linux.
 
 It is also small by design: zsh plus `curl` and `perl`, no Node runtime, no Python runtime. `jq` is optional.
 
@@ -106,6 +109,21 @@ The model returns a single JSON object describing the command:
 The explanation/parameters follow the language of your request (Chinese in,
 Chinese out). If a model ever replies with plain text instead of JSON, the
 whole reply is used as the command, so nothing breaks.
+
+The system prompt is tuned to return a **directly runnable** command, not a
+template. In particular it instructs the model to:
+
+- avoid placeholders like `<file>` or `path/to/dir` — use a concrete default or
+  let the shell discover the value (e.g. `$(git branch --show-current)`);
+- pick platform-correct commands/flags from your OS (`Darwin` = macOS/BSD,
+  `Linux` = GNU coreutils — e.g. `sed -i ''` vs `sed -i`);
+- chain multi-step work on a single line with `&&` / `|` (never a newline);
+- prefer non-destructive forms and avoid `--force`/`-f` unless you asked for it;
+- never invent non-existent subcommands or flags — when a request can't be made
+  reliable, it returns the closest best-effort command and states the assumption.
+
+Layer your own preferences on top without losing these rules via
+`ZSH_AI_PROMPT_EXTEND` (see [Configuration](#configuration)).
 
 #### Box mode (default)
 

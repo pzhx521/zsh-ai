@@ -428,7 +428,8 @@ test_get_system_prompt_without_extension() {
     assert_contains "$prompt" "test context"
     
     # Should not have extra newlines where extension would be
-    local expected_pattern=$'parameters\":\"\$USER expands to the logged-in user.\"}\n\nContext:'
+    # (the last example is now the Chinese one; it should sit right before Context:)
+    local expected_pattern=$'强制终止。\"}\n\nContext:'
     assert_contains "$prompt" "$expected_pattern"
 
     teardown_test_env
