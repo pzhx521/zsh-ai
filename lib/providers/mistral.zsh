@@ -29,7 +29,7 @@ _zsh_ai_query_mistral() {
             "content": "$escaped_query"
         }
     ],
-    "max_tokens": 256,
+    "max_tokens": ${ZSH_AI_MAX_TOKENS},
     "temperature": 0.3
 }
 EOF

@@ -18,7 +18,7 @@ _zsh_ai_query_anthropic() {
     local json_payload=$(cat <<EOF
 {
     "model": "$ZSH_AI_ANTHROPIC_MODEL",
-    "max_tokens": 256,
+    "max_tokens": ${ZSH_AI_MAX_TOKENS},
     "system": "$escaped_system_prompt",
     "messages": [
         {

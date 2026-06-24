@@ -30,7 +30,7 @@ _zsh_ai_query_grok() {
             "content": "$escaped_query"
         }
     ],
-    "max_completion_tokens": 256,
+    "max_completion_tokens": ${ZSH_AI_MAX_TOKENS},
     "temperature": 0.3,
     "reasoning_effort": "none"
 }

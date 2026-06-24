@@ -251,6 +251,18 @@ Add command preferences without replacing the built-in quoting rules:
 export ZSH_AI_PROMPT_EXTEND="Prefer rg over grep, fd over find, and bat over cat."
 ```
 
+Cap the tokens the model may **generate** (default `2048`). Reasoning models
+(DeepSeek, o-series, …) spend part of this budget on hidden chain-of-thought, so
+a value that's too low can leave nothing for the actual command and the reply
+comes back empty (`finish_reason: length`). Raise it for heavy reasoning models,
+lower it to save cost on plain models:
+
+```bash
+export ZSH_AI_MAX_TOKENS="2048"
+```
+
+> This limits output only — it does not affect how much context is sent.
+
 Change the inline trigger, or disable the comment hook altogether (handy when you
 paste code blocks that start with `#` comments):
 

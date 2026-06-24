@@ -18,6 +18,13 @@
 : ${ZSH_AI_MISTRAL_MODEL:="mistral-small-latest"}  # Default Mistral model
 : ${ZSH_AI_MISTRAL_URL:="https://api.mistral.ai/v1/chat/completions"}  # Default Mistral URL
 
+# Max output tokens --------------------------------------------------------
+# Upper bound on the tokens the model may GENERATE (not the input). Reasoning
+# models (DeepSeek, o-series, ...) spend part of this budget on hidden chain-of-
+# thought, so a small value can leave nothing for the actual command and the
+# reply comes back empty (finish_reason=length). 2048 leaves room for both.
+: ${ZSH_AI_MAX_TOKENS:="2048"}
+
 # Inline trigger configuration
 : ${ZSH_AI_COMMENT_HOOK:="true"}  # Set to false/off/no/0 to disable the inline trigger widget entirely
 : ${ZSH_AI_TRIGGER:="# "}  # Prompt prefix that triggers AI (e.g. ",," instead of "# ")
