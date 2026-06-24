@@ -35,15 +35,14 @@ _zsh_ai_query_ollama() {
 EOF
 )
     
-    # Call the API
-    response=$(curl -s "${ZSH_AI_OLLAMA_URL}/api/generate" \
-        --header "content-type: application/json" \
-        --data "$json_payload")
-    
+    # Call the API (captures HTTP status + body for diagnostics)
+    _zsh_ai_curl "${ZSH_AI_OLLAMA_URL}/api/generate" "$json_payload"
+
     if [[ $? -ne 0 ]]; then
-        echo "Error: Failed to connect to Ollama. Is it running?"
+        _zsh_ai_error_report "Error: Failed to connect to Ollama. Is it running?"
         return 1
     fi
+    response="$ZSH_AI_LAST_RESPONSE"
     
     # Extract the response
     if command -v jq &> /dev/null; then
@@ -52,9 +51,9 @@ EOF
             # Check for error message
             local error=$(printf "%s" "$response" | jq -r '.error // empty' 2>/dev/null)
             if [[ -n "$error" ]]; then
-                echo "Ollama Error: $error"
+                _zsh_ai_error_report "Ollama Error: $error"
             else
-                echo "Error: Unable to parse Ollama response"
+                _zsh_ai_error_report "Error: Unable to parse Ollama response"
             fi
             return 1
         fi
@@ -74,7 +73,7 @@ EOF
         fi
 
         if [[ -z "$result" ]]; then
-            echo "Error: Unable to parse response (install jq for better reliability)"
+            _zsh_ai_error_report "Error: Unable to parse response (install jq for better reliability)"
             return 1
         fi
 

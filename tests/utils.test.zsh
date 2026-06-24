@@ -546,6 +546,102 @@ test_display_width_counts_cjk_as_two() {
     teardown_test_env
 }
 
+# Sanitization / error-detection tests
+test_sanitize_strips_control_chars() {
+    setup_test_env
+    local dirty=$'ls\e[31mX\e[0m'
+    local clean="$(_zsh_ai_sanitize "$dirty")"
+    if [[ "$clean" == *$'\e'* ]]; then TEST_FAILED=1; fi
+    assert_equals "$clean" "ls[31mX[0m"
+    teardown_test_env
+}
+
+test_json_field_strips_escape_sequences() {
+    setup_test_env
+    local j=$'{"command":"ls\e[2J","explanation":"x","parameters":""}'
+    local cmd="$(_zsh_ai_json_field "$j" command)"
+    if [[ "$cmd" == *$'\e'* ]]; then TEST_FAILED=1; fi
+    teardown_test_env
+}
+
+test_execute_command_detects_nonprefixed_error() {
+    setup_test_env
+    export ZSH_AI_PROVIDER="ollama"
+    # Restore the real function in case an earlier test left a mock behind
+    source "$PLUGIN_DIR/lib/utils.zsh"
+    # Provider returns an error with a non-standard prefix AND a non-zero code
+    _zsh_ai_query() { echo "Ollama Error: model not found"; return 1; }
+
+    local output rc
+    output=$(_zsh_ai_execute_command "list files")
+    rc=$?
+
+    # Must be reported as a failure, not treated as a runnable command
+    assert_equals "$rc" "1"
+    teardown_test_env
+}
+
+# HTTP diagnostics tests
+test_redact_hides_url_key() {
+    setup_test_env
+    local out=$(_zsh_ai_redact "https://x/v1?key=AIzaSECRET&foo=1")
+    assert_contains "$out" "key=***REDACTED***"
+    assert_not_contains "$out" "AIzaSECRET"
+    teardown_test_env
+}
+
+test_redact_hides_bearer_token() {
+    setup_test_env
+    local out=$(_zsh_ai_redact "Authorization: Bearer sk-TOPSECRET")
+    assert_contains "$out" "***REDACTED***"
+    assert_not_contains "$out" "sk-TOPSECRET"
+    teardown_test_env
+}
+
+test_curl_captures_status_and_body() {
+    setup_test_env
+    # Fake curl emits a body plus the status sentinel that real `curl -w` adds
+    curl() { printf '%s' '{"ok":true}'; printf '\nZSHAI_HTTP_STATUS:503'; return 0; }
+
+    _zsh_ai_curl "https://api.test/v1" '{"q":1}' --header "Authorization: Bearer k"
+
+    assert_equals "$ZSH_AI_LAST_STATUS" "503"
+    assert_equals "$ZSH_AI_LAST_RESPONSE" '{"ok":true}'
+    assert_equals "$ZSH_AI_LAST_REQUEST" '{"q":1}'
+    unfunction curl
+    teardown_test_env
+}
+
+test_curl_without_sentinel_keeps_body() {
+    setup_test_env
+    # Mocked curl (as in provider tests) returns body only, no sentinel
+    curl() { printf '%s' '{"choices":[{"message":{"content":"ls"}}]}'; return 0; }
+
+    _zsh_ai_curl "https://api.test/v1" '{"q":1}'
+
+    # Body must be preserved untouched so provider parsing still works
+    assert_equals "$ZSH_AI_LAST_RESPONSE" '{"choices":[{"message":{"content":"ls"}}]}'
+    assert_equals "$ZSH_AI_LAST_STATUS" ""
+    unfunction curl
+    teardown_test_env
+}
+
+test_error_report_includes_diagnostics() {
+    setup_test_env
+    ZSH_AI_LAST_STATUS="429"
+    ZSH_AI_LAST_URL="https://api.test/v1"
+    ZSH_AI_LAST_REQUEST='{"model":"x"}'
+    ZSH_AI_LAST_RESPONSE='{"error":{"message":"rate limited"}}'
+
+    local out=$(_zsh_ai_error_report "API Error: rate limited")
+
+    assert_contains "$out" "API Error: rate limited"
+    assert_contains "$out" "429"
+    assert_contains "$out" '{"model":"x"}'
+    assert_contains "$out" "rate limited"
+    teardown_test_env
+}
+
 # Run tests
 echo "Running utils tests..."
 run_test "Routes to Anthropic provider when configured" test_routes_to_anthropic_provider
@@ -577,4 +673,12 @@ run_test "Render response returns command for json" test_render_response_returns
 run_test "Render response passes through plain text" test_render_response_passes_through_plain_text
 run_test "Box mode does not push to buffer" test_box_mode_does_not_push_to_buffer
 run_test "Display width counts CJK as two" test_display_width_counts_cjk_as_two
+run_test "Sanitize strips control chars" test_sanitize_strips_control_chars
+run_test "JSON field strips escape sequences" test_json_field_strips_escape_sequences
+run_test "Execute command detects non-prefixed error" test_execute_command_detects_nonprefixed_error
+run_test "Redact hides URL key" test_redact_hides_url_key
+run_test "Redact hides bearer token" test_redact_hides_bearer_token
+run_test "Curl captures status and body" test_curl_captures_status_and_body
+run_test "Curl without sentinel keeps body" test_curl_without_sentinel_keeps_body
+run_test "Error report includes diagnostics" test_error_report_includes_diagnostics
 finish_tests

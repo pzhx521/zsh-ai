@@ -195,6 +195,29 @@ export ZSH_AI_MEDIUM_RISK_PATTERNS=()
 > it manages `region_highlight` on every redraw and will override the risk color.
 > The blacklist refusal and warnings still work regardless.
 
+### Troubleshooting failed requests
+
+When a request fails, zsh-ai prints a diagnostic block to help you debug:
+
+```text
+API Error: invalid x-api-key
+──────── zsh-ai 诊断信息(排查用)────────
+HTTP 状态码 : 401
+请求地址    : https://api.anthropic.com/v1/messages
+请求体      : { "model": "claude-haiku-4-5", ... }
+原始响应    : {"error":{"message":"invalid x-api-key"}}
+(注:请求头含密钥,未打印)
+```
+
+The endpoint is redacted (API keys passed in the URL are masked) and request
+headers are never printed, so your API key is not leaked. Set `ZSH_AI_DEBUG=true`
+to also append every request/response to a log file for deeper investigation:
+
+```bash
+export ZSH_AI_DEBUG="true"
+export ZSH_AI_DEBUG_LOG="$HOME/.zsh-ai-debug.log"   # default
+```
+
 ## Configuration
 
 Switch providers with `ZSH_AI_PROVIDER`:

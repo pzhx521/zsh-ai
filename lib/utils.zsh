@@ -21,12 +21,22 @@ _zsh_ai_escape_json() {
     printf '%s' "$1" | perl -0777 -pe 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\r/\\r/g; s/\n/\\n/g; s/\f/\\f/g; s/\x08/\\b/g; s/[\x00-\x07\x0B\x0E-\x1F]//g'
 }
 
+# Strip terminal control characters (including ESC) from model-provided text.
+# Model output is printed to the terminal and pushed into the line buffer, so a
+# compromised endpoint or prompt-injected reply could otherwise smuggle ANSI
+# escape sequences (cursor moves, screen rewrites, etc.) into the display.
+_zsh_ai_sanitize() {
+    emulate -L zsh
+    printf '%s' "${1//[[:cntrl:]]/}"
+}
+
 # Extract a top-level string field from the model's JSON response.
 # Prefers jq when available, falls back to perl (a required dependency).
-# Returns an empty string when the field is missing or the input is not JSON.
+# The result is sanitized of control characters. Returns an empty string when
+# the field is missing or the input is not JSON.
 _zsh_ai_json_field() {
     emulate -L zsh
-    local json="$1" field="$2"
+    local json="$1" field="$2" result
 
     # Strip code fences and stray carriage returns the model may add
     json="${json//$'\r'/}"
@@ -35,16 +45,15 @@ _zsh_ai_json_field() {
     json="${json%\`\`\`}"
 
     if command -v jq >/dev/null 2>&1; then
-        local out
-        out="$(printf '%s' "$json" | jq -er --arg f "$field" '.[$f] // empty' 2>/dev/null)"
+        result="$(printf '%s' "$json" | jq -er --arg f "$field" '.[$f] // empty' 2>/dev/null)"
         if [[ $? -eq 0 ]]; then
-            printf '%s' "$out"
+            _zsh_ai_sanitize "$result"
             return 0
         fi
     fi
 
     # perl fallback: extract "field":"..." handling escaped characters
-    FIELD="$field" perl -0777 -ne '
+    result="$(FIELD="$field" perl -0777 -ne '
         my $f = quotemeta($ENV{FIELD});
         if (/"$f"\s*:\s*"((?:[^"\\]|\\.)*)"/s) {
             my $v = $1;
@@ -52,7 +61,8 @@ _zsh_ai_json_field() {
             $v =~ s/\\"/"/g; $v =~ s/\\\\/\\/g;
             print $v;
         }
-    ' <<< "$json"
+    ' <<< "$json")"
+    _zsh_ai_sanitize "$result"
 }
 
 # Parse a model response into command/explanation/parameters and print the
@@ -66,7 +76,7 @@ _zsh_ai_render_response() {
     command_str="$(_zsh_ai_json_field "$raw" command)"
     if [[ -z "$command_str" ]]; then
         # Not JSON - treat the whole response as the command
-        printf '%s' "$raw"
+        _zsh_ai_sanitize "$raw"
         return 0
     fi
 
@@ -155,6 +165,69 @@ _zsh_ai_render_box() {
     unfunction _zsh_ai_box_line
 }
 
+# Diagnostics for the most recent HTTP request (used by _zsh_ai_error_report)
+typeset -g ZSH_AI_LAST_STATUS="" ZSH_AI_LAST_URL="" ZSH_AI_LAST_REQUEST="" ZSH_AI_LAST_RESPONSE=""
+
+# Redact secrets (API keys in URL query params, bearer/x-api-key tokens) for display.
+_zsh_ai_redact() {
+    printf '%s' "$1" | perl -pe 's/([?&](?:key|api_key|access_token|token)=)[^&\s]+/${1}***REDACTED***/gi; s/(Bearer\s+)\S+/${1}***REDACTED***/gi; s/(x-api-key:\s*)\S+/${1}***REDACTED***/gi'
+}
+
+# POST JSON to an endpoint, capturing the body and HTTP status code.
+# Usage: _zsh_ai_curl URL PAYLOAD [extra curl header args...]
+# Sets ZSH_AI_LAST_{URL,REQUEST,STATUS,RESPONSE} and returns curl's exit code.
+# The response body is exposed via $ZSH_AI_LAST_RESPONSE (NOT stdout) so that
+# the diagnostics globals survive — capturing via $(...) would run this in a
+# subshell and the globals would be lost to the caller's error reporter.
+# A sentinel carries the status code so body parsing is unaffected when curl is
+# mocked in tests (no sentinel -> status stays empty, body untouched).
+_zsh_ai_curl() {
+    local url="$1" payload="$2"; shift 2
+    ZSH_AI_LAST_URL="$url"
+    ZSH_AI_LAST_REQUEST="$payload"
+    ZSH_AI_LAST_STATUS=""
+    ZSH_AI_LAST_RESPONSE=""
+
+    local raw rc
+    raw=$(curl -s -w $'\nZSHAI_HTTP_STATUS:%{http_code}' "$url" "$@" \
+        --header "content-type: application/json" \
+        --data "$payload" 2>&1)
+    rc=$?
+
+    if [[ "$raw" == *$'\n'"ZSHAI_HTTP_STATUS:"* ]]; then
+        ZSH_AI_LAST_STATUS="${raw##*ZSHAI_HTTP_STATUS:}"
+        ZSH_AI_LAST_RESPONSE="${raw%$'\n'ZSHAI_HTTP_STATUS:*}"
+    else
+        ZSH_AI_LAST_RESPONSE="$raw"
+    fi
+
+    # Optional: append full request/response to the debug log
+    if _zsh_ai_debug_enabled 2>/dev/null; then
+        {
+            print -r -- "[zsh-ai] status=${ZSH_AI_LAST_STATUS:-?} url=$(_zsh_ai_redact "$url")"
+            print -r -- "  request : $payload"
+            print -r -- "  response: ${ZSH_AI_LAST_RESPONSE}"
+        } >> "${ZSH_AI_DEBUG_LOG:-/dev/null}" 2>/dev/null
+    fi
+
+    return $rc
+}
+
+# Print an error message followed by request diagnostics (status, endpoint,
+# request body, raw response) so a failed request can be investigated.
+# The caller passes the full message including its prefix (e.g. "API Error: ..").
+# Headers are never printed and the URL is redacted, so no API key is leaked.
+_zsh_ai_error_report() {
+    local msg="$1"
+    print -r -- "$msg"
+    print -r -- "──────── zsh-ai 诊断信息(排查用)────────"
+    print -r -- "HTTP 状态码 : ${ZSH_AI_LAST_STATUS:-N/A}"
+    print -r -- "请求地址    : $(_zsh_ai_redact "${ZSH_AI_LAST_URL:-N/A}")"
+    print -r -- "请求体      : ${ZSH_AI_LAST_REQUEST:-N/A}"
+    print -r -- "原始响应    : ${ZSH_AI_LAST_RESPONSE:-N/A}"
+    print -r -- "(注:请求头含密钥,未打印)"
+}
+
 # Main query function that routes to the appropriate provider
 _zsh_ai_query() {
     local query="$1"
@@ -185,13 +258,17 @@ _zsh_ai_query() {
 # Shared function to handle AI command execution
 _zsh_ai_execute_command() {
     local query="$1"
-    local cmd=$(_zsh_ai_query "$query")
-    
-    if [[ -n "$cmd" ]] && [[ "$cmd" != "Error:"* ]] && [[ "$cmd" != "API Error:"* ]]; then
+    # Note: assign then capture $? separately - `local cmd=$(...)` would mask the
+    # command substitution's exit code with the (always-0) exit code of `local`.
+    local cmd rc
+    cmd=$(_zsh_ai_query "$query")
+    rc=$?
+
+    if (( rc == 0 )) && [[ -n "$cmd" ]] && [[ "$cmd" != "Error:"* ]] && [[ "$cmd" != "API Error:"* ]]; then
         echo "$cmd"
         return 0
     else
-        # Return error
+        # Return error (covers provider errors that don't use the Error: prefix)
         echo "$cmd"
         return 1
     fi
@@ -271,7 +348,7 @@ zsh-ai() {
             # Box mode: show everything framed; never paste into the prompt
             local parsed_cmd explanation params risk="safe"
             parsed_cmd="$(_zsh_ai_json_field "$cmd" command)"
-            [[ -z "$parsed_cmd" ]] && parsed_cmd="$cmd"
+            [[ -z "$parsed_cmd" ]] && parsed_cmd="$(_zsh_ai_sanitize "$cmd")"
             explanation="$(_zsh_ai_json_field "$cmd" explanation)"
             params="$(_zsh_ai_json_field "$cmd" parameters)"
             (( ${+functions[_zsh_ai_risk_level]} )) && _zsh_ai_safety_enabled && \
@@ -284,7 +361,8 @@ zsh-ai() {
         print -P "%F{red}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%f"
         print -P "%F{red}❌ Failed to generate command%f"
         if [[ -n "$cmd" ]]; then
-            print -P "%F{red}$cmd%f"
+            # Raw print: diagnostics may contain '%' or multiple lines
+            print -r -- $'\e[31m'"$cmd"$'\e[0m'
         fi
         print -P "%F{red}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%f"
         echo ""  # Blank line for spacing

@@ -30,6 +30,20 @@ _zsh_ai_comment_hook_enabled() {
     esac
 }
 
+# Debugging ------------------------------------------------------------------
+# When a request fails, the HTTP status code, redacted endpoint, request body
+# and raw response are always shown to help troubleshoot. With ZSH_AI_DEBUG=true
+# every request/response is also appended to ZSH_AI_DEBUG_LOG.
+: ${ZSH_AI_DEBUG:="false"}
+: ${ZSH_AI_DEBUG_LOG:="${HOME}/.zsh-ai-debug.log"}
+
+_zsh_ai_debug_enabled() {
+    case "${ZSH_AI_DEBUG:l}" in
+        true|on|yes|1|enabled) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 # Output mode ----------------------------------------------------------------
 # box    = show the command + explanation + parameters inside a framed box and
 #          leave the input line EMPTY (you copy/retype to run -> avoids misfires)

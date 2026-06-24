@@ -58,15 +58,13 @@ EOF
     local api_key="${ZSH_AI_OPENAI_API_KEY:-$OPENAI_API_KEY}"
     [[ -n "$api_key" ]] && auth_args=(--header "Authorization: Bearer $api_key")
 
-    response=$(curl -s "${ZSH_AI_OPENAI_URL}" \
-        "${auth_args[@]}" \
-        --header "content-type: application/json" \
-        --data "$json_payload" 2>&1)
-    
+    _zsh_ai_curl "${ZSH_AI_OPENAI_URL}" "$json_payload" "${auth_args[@]}"
+
     if [[ $? -ne 0 ]]; then
-        echo "Error: Failed to connect to OpenAI API"
+        _zsh_ai_error_report "Error: Failed to connect to OpenAI API"
         return 1
     fi
+    response="$ZSH_AI_LAST_RESPONSE"
     
     # Debug: Uncomment to see raw response
     # echo "DEBUG: Raw response: $response" >&2
@@ -79,9 +77,9 @@ EOF
             # Check for error message
             local error=$(printf "%s" "$response" | jq -r '.error.message // empty' 2>/dev/null)
             if [[ -n "$error" ]]; then
-                echo "API Error: $error"
+                _zsh_ai_error_report "API Error: $error"
             else
-                echo "Error: Unable to parse response"
+                _zsh_ai_error_report "Error: Unable to parse response"
             fi
             return 1
         fi
@@ -101,7 +99,7 @@ EOF
         fi
 
         if [[ -z "$result" ]]; then
-            echo "Error: Unable to parse response (install jq for better reliability)"
+            _zsh_ai_error_report "Error: Unable to parse response (install jq for better reliability)"
             return 1
         fi
 

@@ -30,17 +30,16 @@ _zsh_ai_query_anthropic() {
 EOF
 )
     
-    # Call the API
-    response=$(curl -s "${ZSH_AI_ANTHROPIC_URL}" \
+    # Call the API (captures HTTP status + body for diagnostics)
+    _zsh_ai_curl "${ZSH_AI_ANTHROPIC_URL}" "$json_payload" \
         --header "x-api-key: $ANTHROPIC_API_KEY" \
-        --header "anthropic-version: 2023-06-01" \
-        --header "content-type: application/json" \
-        --data "$json_payload" 2>&1)
-    
+        --header "anthropic-version: 2023-06-01"
+
     if [[ $? -ne 0 ]]; then
-        echo "Error: Failed to connect to Anthropic API"
+        _zsh_ai_error_report "Error: Failed to connect to Anthropic API"
         return 1
     fi
+    response="$ZSH_AI_LAST_RESPONSE"
     
     # Debug: Uncomment to see raw response
     # echo "DEBUG: Raw response: $response" >&2
@@ -53,9 +52,9 @@ EOF
             # Check for error message
             local error=$(printf "%s" "$response" | jq -r '.error.message // empty' 2>/dev/null)
             if [[ -n "$error" ]]; then
-                echo "API Error: $error"
+                _zsh_ai_error_report "API Error: $error"
             else
-                echo "Error: Unable to parse response"
+                _zsh_ai_error_report "Error: Unable to parse response"
             fi
             return 1
         fi
@@ -75,7 +74,7 @@ EOF
         fi
 
         if [[ -z "$result" ]]; then
-            echo "Error: Unable to parse response (install jq for better reliability)"
+            _zsh_ai_error_report "Error: Unable to parse response (install jq for better reliability)"
             return 1
         fi
 

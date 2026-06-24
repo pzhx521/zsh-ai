@@ -35,16 +35,15 @@ _zsh_ai_query_qwen() {
 EOF
 )
     
-    # Call the API
-    response=$(curl -s "${ZSH_AI_QWEN_URL}" \
-        --header "Authorization: Bearer $QWEN_API_KEY" \
-        --header "content-type: application/json" \
-        --data "$json_payload" 2>&1)
-    
+    # Call the API (captures HTTP status + body for diagnostics)
+    _zsh_ai_curl "${ZSH_AI_QWEN_URL}" "$json_payload" \
+        --header "Authorization: Bearer $QWEN_API_KEY"
+
     if [[ $? -ne 0 ]]; then
-        echo "Error: Failed to connect to QWEN API"
+        _zsh_ai_error_report "Error: Failed to connect to QWEN API"
         return 1
     fi
+    response="$ZSH_AI_LAST_RESPONSE"
     
     # Extract the content from the response
     # Try using jq if available, otherwise fall back to sed/grep
@@ -54,9 +53,9 @@ EOF
             # Check for error message
             local error=$(printf "%s" "$response" | jq -r '.error.message // empty' 2>/dev/null)
             if [[ -n "$error" ]]; then
-                echo "API Error: $error"
+                _zsh_ai_error_report "API Error: $error"
             else
-                echo "Error: Unable to parse response"
+                _zsh_ai_error_report "Error: Unable to parse response"
             fi
             return 1
         fi
@@ -76,7 +75,7 @@ EOF
         fi
 
         if [[ -z "$result" ]]; then
-            echo "Error: Unable to parse response (install jq for better reliability)"
+            _zsh_ai_error_report "Error: Unable to parse response (install jq for better reliability)"
             return 1
         fi
 

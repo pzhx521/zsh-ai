@@ -45,15 +45,15 @@ _zsh_ai_query_gemini() {
 EOF
 )
     
-    # Call the API
-    response=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/${ZSH_AI_GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}" \
-        --header "content-type: application/json" \
-        --data "$json_payload" 2>&1)
-    
+    # Call the API (captures HTTP status + body for diagnostics; the API key in
+    # the URL is redacted by _zsh_ai_error_report before any printing)
+    _zsh_ai_curl "https://generativelanguage.googleapis.com/v1beta/models/${ZSH_AI_GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}" "$json_payload"
+
     if [[ $? -ne 0 ]]; then
-        echo "Error: Failed to connect to Gemini API"
+        _zsh_ai_error_report "Error: Failed to connect to Gemini API"
         return 1
     fi
+    response="$ZSH_AI_LAST_RESPONSE"
     
     # Debug: Uncomment to see raw response
     # echo "DEBUG: Raw response: $response" >&2
@@ -66,9 +66,9 @@ EOF
             # Check for error message
             local error=$(printf "%s" "$response" | jq -r '.error.message // empty' 2>/dev/null)
             if [[ -n "$error" ]]; then
-                echo "API Error: $error"
+                _zsh_ai_error_report "API Error: $error"
             else
-                echo "Error: Unable to parse response"
+                _zsh_ai_error_report "Error: Unable to parse response"
             fi
             return 1
         fi
@@ -88,7 +88,7 @@ EOF
         fi
 
         if [[ -z "$result" ]]; then
-            echo "Error: Unable to parse response (install jq for better reliability)"
+            _zsh_ai_error_report "Error: Unable to parse response (install jq for better reliability)"
             return 1
         fi
 

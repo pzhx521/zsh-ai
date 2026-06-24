@@ -67,7 +67,7 @@ _zsh_ai_accept_line() {
             local command_str explanation params
             command_str="$(_zsh_ai_json_field "$cmd" command)"
             if [[ -z "$command_str" ]]; then
-                command_str="$cmd"
+                command_str="$(_zsh_ai_sanitize "$cmd")"
             else
                 explanation="$(_zsh_ai_json_field "$cmd" explanation)"
                 params="$(_zsh_ai_json_field "$cmd" parameters)"
@@ -122,7 +122,9 @@ _zsh_ai_accept_line() {
             echo ""  # New line for better visibility
             print -P "%F{red}❌ Failed to generate command%f"
             if [[ -n "$cmd" ]]; then
-                print -P "%F{red}$cmd%f"
+                # Use raw printing: the error/diagnostics may contain '%' or
+                # multiple lines, which `print -P` would mis-interpret.
+                print -r -- $'\e[31m'"$cmd"$'\e[0m'
             fi
             echo ""  # Extra line for readability
 

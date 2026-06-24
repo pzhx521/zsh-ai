@@ -35,16 +35,15 @@ _zsh_ai_query_mistral() {
 EOF
 )
     
-    # Call the API
-    response=$(curl -s "${ZSH_AI_MISTRAL_URL}" \
-        --header "Authorization: Bearer $MISTRAL_API_KEY" \
-        --header "content-type: application/json" \
-        --data "$json_payload" 2>&1)
-    
+    # Call the API (captures HTTP status + body for diagnostics)
+    _zsh_ai_curl "${ZSH_AI_MISTRAL_URL}" "$json_payload" \
+        --header "Authorization: Bearer $MISTRAL_API_KEY"
+
     if [[ $? -ne 0 ]]; then
-        printf "%s" "Error: Failed to connect to Mistral API"
+        _zsh_ai_error_report "Error: Failed to connect to Mistral API"
         return 1
     fi
+    response="$ZSH_AI_LAST_RESPONSE"
     
     # Debug: Uncomment to see raw response
     # printf "%s" "DEBUG: Raw response: $response" >&2
@@ -57,9 +56,9 @@ EOF
             # Check for error message
             local error=$(printf "%s" "$response" | jq -r '.error.message // empty' 2>/dev/null)
             if [[ -n "$error" ]]; then
-                printf "%s" "API Error: $error"
+                _zsh_ai_error_report "API Error: $error"
             else
-                printf "%s" "Error: Unable to parse response"
+                _zsh_ai_error_report "Error: Unable to parse response"
             fi
             return 1
         fi
@@ -79,7 +78,7 @@ EOF
         fi
         
         if [[ -z "$result" ]]; then
-            printf "%s" "Error: Unable to parse response (install jq for better reliability)"
+            _zsh_ai_error_report "Error: Unable to parse response (install jq for better reliability)"
             return 1
         fi
         

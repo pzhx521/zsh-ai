@@ -74,7 +74,8 @@ _zsh_ai_risk_level() {
 
     # --- analyze rm flags once (shared by blocked + high) ---
     local rm_is_cmd=0 rm_recursive=0 rm_force=0
-    if [[ "$cmd" =~ '(^|[;&|[:space:]])rm([[:space:]]|$)' ]]; then
+    # leading class includes "/" so absolute paths like /bin/rm are still caught
+    if [[ "$cmd" =~ '(^|[;&|[:space:]/])rm([[:space:]]|$)' ]]; then
         rm_is_cmd=1
         if [[ "$cmd" =~ '(^|[[:space:]])-[[:alnum:]]*[rR]' ]] || [[ "$cmd" == *--recursive* ]]; then
             rm_recursive=1
