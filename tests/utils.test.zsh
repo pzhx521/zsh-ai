@@ -336,22 +336,23 @@ test_shows_loading_spinner() {
 
 test_get_system_prompt_includes_all_rules() {
     setup_test_env
-    
+
     local prompt=$(_zsh_ai_get_system_prompt "test context")
-    
-    # Check that all key parts of the prompt are present
+
+    # Check that all key parts of the JSON-output prompt are present
     assert_contains "$prompt" "zsh command generator"
     assert_contains "$prompt" "IMPORTANT RULES"
-    assert_contains "$prompt" "Output ONLY the raw command"
-    assert_contains "$prompt" "no explanations, no markdown, no backticks"
+    assert_contains "$prompt" "raw JSON object"
+    assert_contains "$prompt" '"command"'
+    assert_contains "$prompt" '"explanation"'
+    assert_contains "$prompt" '"parameters"'
     assert_contains "$prompt" "single quotes"
     assert_contains "$prompt" "double quotes"
     assert_contains "$prompt" "variable expansion"
     assert_contains "$prompt" "Examples:"
-    assert_contains "$prompt" "echo 'Hello World!'"
     assert_contains "$prompt" "Context:"
     assert_contains "$prompt" "test context"
-    
+
     teardown_test_env
 }
 
@@ -427,9 +428,9 @@ test_get_system_prompt_without_extension() {
     assert_contains "$prompt" "test context"
     
     # Should not have extra newlines where extension would be
-    local expected_pattern=$'glob patterns in quotes)\n\nContext:'
+    local expected_pattern=$'parameters\":\"\$USER expands to the logged-in user.\"}\n\nContext:'
     assert_contains "$prompt" "$expected_pattern"
-    
+
     teardown_test_env
 }
 
@@ -467,6 +468,55 @@ test_get_system_prompt_with_empty_extension() {
     teardown_test_env
 }
 
+# JSON response parsing tests
+test_json_field_extracts_command() {
+    setup_test_env
+    local j='{"command":"lsof -ti:8080 | xargs kill -9","explanation":"x","parameters":"y"}'
+    assert_equals "$(_zsh_ai_json_field "$j" command)" "lsof -ti:8080 | xargs kill -9"
+    teardown_test_env
+}
+
+test_json_field_extracts_explanation() {
+    setup_test_env
+    local j='{"command":"ls","explanation":"列出文件","parameters":""}'
+    assert_equals "$(_zsh_ai_json_field "$j" explanation)" "列出文件"
+    teardown_test_env
+}
+
+test_json_field_handles_code_fences() {
+    setup_test_env
+    local j=$'```json\n{"command":"pwd","explanation":"e","parameters":"p"}\n```'
+    assert_equals "$(_zsh_ai_json_field "$j" command)" "pwd"
+    teardown_test_env
+}
+
+test_json_field_handles_escaped_quotes() {
+    setup_test_env
+    local j='{"command":"echo \"hi $USER\"","explanation":"e","parameters":"p"}'
+    assert_equals "$(_zsh_ai_json_field "$j" command)" 'echo "hi $USER"'
+    teardown_test_env
+}
+
+test_json_field_empty_for_non_json() {
+    setup_test_env
+    assert_equals "$(_zsh_ai_json_field "ls -la" command)" ""
+    teardown_test_env
+}
+
+test_render_response_returns_command_for_json() {
+    setup_test_env
+    local j='{"command":"git status","explanation":"e","parameters":"p"}'
+    # explanation/params go to stderr; stdout is the bare command
+    assert_equals "$(_zsh_ai_render_response "$j" 2>/dev/null)" "git status"
+    teardown_test_env
+}
+
+test_render_response_passes_through_plain_text() {
+    setup_test_env
+    assert_equals "$(_zsh_ai_render_response "ls -la" 2>/dev/null)" "ls -la"
+    teardown_test_env
+}
+
 # Run tests
 echo "Running utils tests..."
 run_test "Routes to Anthropic provider when configured" test_routes_to_anthropic_provider
@@ -489,4 +539,11 @@ run_test "System prompt includes custom extension when set" test_get_system_prom
 run_test "System prompt works without extension" test_get_system_prompt_without_extension
 run_test "System prompt handles multiline extension" test_get_system_prompt_with_multiline_extension
 run_test "System prompt handles empty extension" test_get_system_prompt_with_empty_extension
+run_test "JSON field extracts command" test_json_field_extracts_command
+run_test "JSON field extracts explanation" test_json_field_extracts_explanation
+run_test "JSON field handles code fences" test_json_field_handles_code_fences
+run_test "JSON field handles escaped quotes" test_json_field_handles_escaped_quotes
+run_test "JSON field empty for non-json" test_json_field_empty_for_non_json
+run_test "Render response returns command for json" test_render_response_returns_command_for_json
+run_test "Render response passes through plain text" test_render_response_passes_through_plain_text
 finish_tests

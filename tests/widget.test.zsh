@@ -597,6 +597,37 @@ test_blacklisted_command_is_refused() {
     teardown_test_env
 }
 
+test_json_response_puts_only_command_in_buffer() {
+    setup_test_env
+    export ZSH_AI_PROVIDER="anthropic"
+    export ANTHROPIC_API_KEY="test-key"
+
+    # Model returns a JSON object; only the command should land in BUFFER
+    _zsh_ai_execute_command() {
+        printf '%s' '{"command":"ls -la","explanation":"列出文件","parameters":"-l 详细 -a 含隐藏"}'
+    }
+
+    mock_command "kill" "" 1
+
+    local RESET_PROMPT_CALLED=0
+    zle() {
+        case "$1" in
+            "reset-prompt") RESET_PROMPT_CALLED=1 ;;
+        esac
+    }
+
+    BUFFER="# list files"
+    CURSOR=0
+
+    _zsh_ai_accept_line
+
+    # Buffer holds only the parsed command, not the JSON
+    assert_equals "$BUFFER" "ls -la"
+    assert_equals "$RESET_PROMPT_CALLED" "1"
+
+    teardown_test_env
+}
+
 # Run tests
 echo "Running widget tests..."
 run_test "Widget initialization registers precmd hook" test_widget_initialization_registers_precmd_hook
@@ -616,4 +647,5 @@ run_test "Default '# ' ignored when trigger changed" test_default_hash_ignored_w
 run_test "Chinese input is processed" test_chinese_input_is_processed
 run_test "Chinese input ignored when disabled" test_chinese_input_ignored_when_disabled
 run_test "Blacklisted command is refused" test_blacklisted_command_is_refused
+run_test "JSON response puts only command in buffer" test_json_response_puts_only_command_in_buffer
 finish_tests

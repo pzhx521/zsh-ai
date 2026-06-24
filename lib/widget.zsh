@@ -63,23 +63,40 @@ _zsh_ai_accept_line() {
         rm -f "$tmpfile"
         
         if [[ $exit_code -eq 0 ]] && [[ -n "$cmd" ]] && [[ "$cmd" != "Error:"* ]] && [[ "$cmd" != "API Error:"* ]]; then
-            # Classify the generated command's risk (when safety is enabled)
+            # Parse the JSON response (falls back to raw text when not JSON)
+            local command_str explanation params
+            command_str="$(_zsh_ai_json_field "$cmd" command)"
+            if [[ -z "$command_str" ]]; then
+                command_str="$cmd"
+            else
+                explanation="$(_zsh_ai_json_field "$cmd" explanation)"
+                params="$(_zsh_ai_json_field "$cmd" parameters)"
+            fi
+
+            # Classify the parsed command's risk (when safety is enabled)
             local risk="safe"
-            _zsh_ai_safety_enabled && risk="$(_zsh_ai_risk_level "$cmd")"
+            _zsh_ai_safety_enabled && risk="$(_zsh_ai_risk_level "$command_str")"
 
             if [[ "$risk" == "blocked" ]] && [[ "${ZSH_AI_BLACKLIST_ACTION:l}" != "warn" ]]; then
                 # Blacklisted command - refuse to place it in the buffer
                 echo ""
                 print -P "%F{red}⛔ zsh-ai 拦截了一条黑名单命令,已拒绝填入:%f"
-                print -P "%F{red}   $cmd%f"
+                print -P "%F{red}   $command_str%f"
                 echo ""
                 BUFFER="$saved_buffer"
                 CURSOR=$#BUFFER
                 sleep 0.5
             else
                 # Replace the buffer with the generated command (never auto-executed)
-                BUFFER="$cmd"
+                BUFFER="$command_str"
                 CURSOR=$#BUFFER
+
+                # Show the explanation and key parameters above the prompt
+                if [[ -n "$explanation" ]]; then
+                    echo ""
+                    print -P "%F{cyan}ℹ ${explanation}%f"
+                    [[ -n "$params" ]] && print -P "%F{8}↳ ${params}%f"
+                fi
 
                 if _zsh_ai_safety_enabled; then
                     # Color the whole command by risk level
@@ -88,7 +105,7 @@ _zsh_ai_accept_line() {
 
                     # Surface a short note for risky commands
                     if [[ "$risk" == "high" || "$risk" == "blocked" ]]; then
-                        echo ""
+                        [[ -z "$explanation" ]] && echo ""
                         print -P "%F{red}$(_zsh_ai_risk_label "$risk")%f"
                     fi
                 fi

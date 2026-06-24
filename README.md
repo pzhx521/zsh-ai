@@ -91,6 +91,32 @@ $ find . -type f -size +50M -mtime -7
 
 The command is pushed into your prompt with `print -z`, ready to edit or run.
 
+### Output format
+
+The model is asked to return a single JSON object, and the plugin shows the
+explanation and key parameters above your prompt while placing only the command
+in the editable buffer:
+
+```text
+ℹ 删除 7 天前的日志文件。
+↳ -mtime +7 = 超过 7 天;-delete 删除匹配项。
+$ find . -name '*.log' -mtime +7 -delete
+```
+
+The JSON contract (see `lib/utils.zsh`):
+
+```json
+{
+  "command": "find . -name '*.log' -mtime +7 -delete",
+  "explanation": "1-2 line summary of what the command does",
+  "parameters": "1-2 line explanation of the key flags/arguments"
+}
+```
+
+The explanation/parameters follow the language of your request (Chinese in,
+Chinese out). If a model ever replies with plain text instead of JSON, the
+whole reply is used as the command, so nothing breaks.
+
 ### Chinese / natural-language auto-detection
 
 You don't always need the `#` trigger. When a line contains Chinese (CJK)
