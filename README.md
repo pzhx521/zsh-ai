@@ -122,6 +122,9 @@ template. In particular it instructs the model to:
 - never invent non-existent subcommands or flags — when a request can't be made
   reliable, it returns the closest best-effort command and states the assumption.
 
+For install commands (`apt`, `brew`, `npm`, `pip`, `cargo`, …) the explanation
+also tells you **what the software/SDK is for**, not just that it installs it.
+
 Layer your own preferences on top without losing these rules via
 `ZSH_AI_PROMPT_EXTEND` (see [Configuration](#configuration)).
 
@@ -235,6 +238,64 @@ to also append every request/response to a log file for deeper investigation:
 export ZSH_AI_DEBUG="true"
 export ZSH_AI_DEBUG_LOG="$HOME/.zsh-ai-debug.log"   # default
 ```
+
+## Request logging & daily digest
+
+Set `ZSH_AI_LOG_DIR` and every request is appended as one JSON line to a daily
+log; leave it unset to disable logging entirely.
+
+```bash
+export ZSH_AI_LOG_DIR="$HOME/.zsh-ai/logs"
+```
+
+Each line in `$ZSH_AI_LOG_DIR/YYYY-MM-DD.jsonl` records the timestamp, provider,
+model, OS, your query, and the parsed result (command / explanation / parameters
+/ risk / HTTP status / error). **API keys and the system prompt are never
+logged** — only your query and the result. Records append in chronological
+order, and concurrent writes from multiple terminals are serialized with a lock
+(`flock` on Linux, a portable `mkdir` lock fallback elsewhere, e.g. macOS). The
+log directory is created `700` and the files `600`, since a query can contain
+things you typed.
+
+```json
+{"ts":"2026-06-25T14:03:21+0800","provider":"openai","model":"deepseek-v4-flash","os":"Linux (GNU coreutils)","query":"找出占用8080端口的进程并杀掉","ok":true,"status":"200","command":"lsof -ti:8080 | xargs kill -9","explanation":"…","parameters":"…","risk":"high","error":""}
+```
+
+### Daily knowledge base
+
+`zsh-ai-digest` reads a day's log, aggregates the commands (deduped and ranked by
+how often you used them), asks the model to write a markdown knowledge base, and
+saves it under `$ZSH_AI_LOG_DIR/memory/YYYY-MM-DD.md` (kept separate from the raw
+`.jsonl` logs):
+
+```bash
+zsh-ai-digest            # summarize today
+zsh-ai-digest 2026-06-25 # summarize a specific day
+```
+
+The document ranks the most-used commands first, explains each command's purpose
+and key parameters (including what installed software/SDKs are for), and adds
+real, version-tagged extended command demos. It is kept concise (≤ 400 lines).
+It reuses your `ZSH_AI_PROVIDER`/model but lifts the per-command token cap to
+`ZSH_AI_DIGEST_MAX_TOKENS` (default `16384`) since the document is long.
+
+If a day produced no successfully-generated commands (even if there were failed
+requests), `zsh-ai-digest` skips silently — no model call, no file written.
+
+The generated document is stripped of terminal control/escape sequences and
+opens with a disclaimer: its commands (and extended demos) are AI-generated and
+unverified — confirm before running. Anything you actually run still goes through
+the live safety/blacklist layer.
+
+Run it nightly at 18:00 via cron (the digest covers that day's 00:00–18:00):
+
+```cron
+0 18 * * * ZSH_AI_LOG_DIR="$HOME/.zsh-ai/logs" OPENAI_API_KEY="…" ZSH_AI_PROVIDER=openai zsh -ic 'zsh-ai-digest' >> "$HOME/.zsh-ai/logs/digest.cron.log" 2>&1
+```
+
+> cron runs without your interactive shell, so pass the provider/key/log-dir
+> environment explicitly (or source a file that sets them) and use `zsh -ic` so
+> the plugin is loaded.
 
 ## Configuration
 

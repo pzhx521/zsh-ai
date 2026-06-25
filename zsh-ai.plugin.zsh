@@ -18,6 +18,8 @@ source "${plugin_dir}/lib/providers/qwen.zsh"
 source "${plugin_dir}/lib/providers/grok.zsh"
 source "${plugin_dir}/lib/providers/mistral.zsh"
 source "${plugin_dir}/lib/utils.zsh"
+source "${plugin_dir}/lib/logging.zsh"
+source "${plugin_dir}/lib/digest.zsh"
 source "${plugin_dir}/lib/widget.zsh"
 
 # Initialize the plugin

@@ -83,6 +83,28 @@ Ubuntu or Debian:
 sudo apt-get install jq
 ```
 
+## Empty Or Truncated Reply
+
+If a request fails with an empty response and the diagnostics show
+`finish_reason: length`, the model hit the output token cap. Reasoning models
+(DeepSeek, o-series, …) spend part of the budget on hidden chain-of-thought and
+may run out before writing the command. Raise the cap:
+
+```bash
+export ZSH_AI_MAX_TOKENS="4096"
+```
+
+## Inspecting Requests
+
+When logging is enabled (`ZSH_AI_LOG_DIR`), every request is recorded as JSON in
+`$ZSH_AI_LOG_DIR/YYYY-MM-DD.jsonl` (no API keys). For a full request/response
+trace, enable debug logging:
+
+```bash
+export ZSH_AI_DEBUG="true"
+export ZSH_AI_DEBUG_LOG="$HOME/.zsh-ai-debug.log"   # default
+```
+
 ## Still Stuck
 
 Check the active provider and model:

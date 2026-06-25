@@ -197,6 +197,40 @@ export ZSH_AI_QWEN_URL="https://dashscope.aliyuncs.com/compatible-mode/v1/chat/c
 export ZSH_AI_PROMPT_EXTEND="Prefer rg over grep, fd over find, and bat over cat."
 ```
 
+## Output Tokens
+
+Cap the tokens the model may generate (default `2048`). Raise it for reasoning
+models (DeepSeek, o-series, …) that spend part of the budget on hidden
+chain-of-thought and would otherwise return an empty reply:
+
+```bash
+export ZSH_AI_MAX_TOKENS="2048"
+```
+
+## Request Logging & Daily Digest
+
+Set a directory to log every request as one JSON line per day; leave it unset to
+disable. API keys and the system prompt are never logged.
+
+```bash
+export ZSH_AI_LOG_DIR="$HOME/.zsh-ai/logs"
+```
+
+`zsh-ai-digest [YYYY-MM-DD]` turns a day's log into a markdown knowledge base at
+`$ZSH_AI_LOG_DIR/memory/YYYY-MM-DD.md` (most-used commands first, ≤ 400 lines). It
+reuses your provider but lifts the token cap to `ZSH_AI_DIGEST_MAX_TOKENS`
+(default `16384`). Days with no successfully-generated command are skipped.
+
+Run it nightly at 18:00 with cron. cron has no interactive shell, so pass the
+environment explicitly and use `zsh -ic` so the plugin loads:
+
+```cron
+0 18 * * * ZSH_AI_LOG_DIR="$HOME/.zsh-ai/logs" ZSH_AI_PROVIDER=openai OPENAI_API_KEY="sk-…" zsh -ic 'zsh-ai-digest' >> "$HOME/.zsh-ai/logs/digest.cron.log" 2>&1
+```
+
+See the [README](README.md) for output modes, safety/blacklist, Chinese
+auto-detection, and diagnostics.
+
 ## Inline Trigger
 
 By default, lines starting with `# ` are sent to the AI when you press Enter. Both

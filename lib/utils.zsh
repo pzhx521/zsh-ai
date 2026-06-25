@@ -5,7 +5,14 @@
 # Function to get the standardized system prompt for all providers
 _zsh_ai_get_system_prompt() {
     local context="$1"
-    local base_prompt="You are a zsh command generator. Given the user's natural language request, return a single JSON object describing one runnable zsh command.\n\nIMPORTANT RULES:\n1. Return ONLY a raw JSON object - no markdown, no code fences, no text outside the JSON\n2. The JSON must contain exactly these keys: \"command\", \"explanation\", \"parameters\"\n3. \"command\": the raw, runnable zsh command on a single line - no backticks, no leading \$ prompt, no trailing newline\n4. The command MUST be directly executable as-is. Do NOT use placeholders such as <file>, your-branch, or path/to/dir. If a value is unknown, use a sensible default or let the shell discover it (e.g. \$(git branch --show-current)). Only if a value is truly unavoidable, leave it and call it out in \"explanation\"\n5. Choose platform-correct commands and flags based on the OS in Context: \"Darwin\" means macOS / BSD coreutils, \"Linux\" means GNU coreutils. They differ (e.g. sed -i '' vs sed -i; date -v-7d vs date -d '7 days ago'; stat -f vs stat -c)\n6. For multi-step tasks, chain commands on ONE line with && or | . Never emit a newline inside \"command\"\n7. Prefer non-destructive forms. Do NOT add destructive flags like --force / -f unless the user explicitly asks; when ambiguous, choose the safer variant\n8. If the request cannot be turned into a reliable command, return the closest best-effort command and state the assumption in \"explanation\". Never invent non-existent subcommands or flags\n9. \"explanation\": at most 1-2 short lines describing what the command does\n10. \"parameters\": at most 1-2 short lines explaining the key flags/arguments (use an empty string if there are none)\n11. Reply in the same language as the request (e.g. a Chinese request gets a Chinese explanation and parameters)\n12. In \"command\", quote arguments containing spaces or special characters with single quotes; use double quotes only when variable expansion is needed; escape special characters properly\n\nExamples:\nRequest: delete log files older than 7 days\n{\"command\":\"find . -name '*.log' -mtime +7 -delete\",\"explanation\":\"Find and delete .log files not modified in the last 7 days.\",\"parameters\":\"-mtime +7 = older than 7 days; -delete removes each match.\"}\n\nRequest: show the current user\n{\"command\":\"echo \\\"Current user: \$USER\\\"\",\"explanation\":\"Print the current username.\",\"parameters\":\"\$USER expands to the logged-in user.\"}\n\nRequest: 找出占用 8080 端口的进程并杀掉\n{\"command\":\"lsof -ti:8080 | xargs kill -9\",\"explanation\":\"查出监听 8080 端口的进程并强制结束。\",\"parameters\":\"-ti:8080 只输出 PID;xargs 把 PID 传给 kill -9 强制终止。\"}"
+    # The digest (zsh-ai-digest) reuses the provider request path but needs a
+    # completely different system prompt. When ZSH_AI_SYSTEM_PROMPT is set it
+    # fully replaces the command-generation prompt below.
+    if [[ -n "$ZSH_AI_SYSTEM_PROMPT" ]]; then
+        echo "$ZSH_AI_SYSTEM_PROMPT"
+        return
+    fi
+    local base_prompt="You are a zsh command generator. Given the user's natural language request, return a single JSON object describing one runnable zsh command.\n\nIMPORTANT RULES:\n1. Return ONLY a raw JSON object - no markdown, no code fences, no text outside the JSON\n2. The JSON must contain exactly these keys: \"command\", \"explanation\", \"parameters\"\n3. \"command\": the raw, runnable zsh command on a single line - no backticks, no leading \$ prompt, no trailing newline\n4. The command MUST be directly executable as-is. Do NOT use placeholders such as <file>, your-branch, or path/to/dir. If a value is unknown, use a sensible default or let the shell discover it (e.g. \$(git branch --show-current)). Only if a value is truly unavoidable, leave it and call it out in \"explanation\"\n5. Choose platform-correct commands and flags based on the OS in Context: \"Darwin\" means macOS / BSD coreutils, \"Linux\" means GNU coreutils. They differ (e.g. sed -i '' vs sed -i; date -v-7d vs date -d '7 days ago'; stat -f vs stat -c)\n6. For multi-step tasks, chain commands on ONE line with && or | . Never emit a newline inside \"command\"\n7. Prefer non-destructive forms. Do NOT add destructive flags like --force / -f unless the user explicitly asks; when ambiguous, choose the safer variant\n8. If the request cannot be turned into a reliable command, return the closest best-effort command and state the assumption in \"explanation\". Never invent non-existent subcommands or flags\n9. \"explanation\": at most 1-2 short lines describing what the command does\n10. \"parameters\": at most 1-2 short lines explaining the key flags/arguments (use an empty string if there are none)\n11. Reply in the same language as the request (e.g. a Chinese request gets a Chinese explanation and parameters)\n12. In \"command\", quote arguments containing spaces or special characters with single quotes; use double quotes only when variable expansion is needed; escape special characters properly\n13. If the command installs software, an SDK or packages (apt, apt-get, yum, dnf, pacman, brew, npm, pip, pip3, gem, cargo, go, ...), additionally state in \"explanation\" what the installed software/SDK is for (its purpose), not just that it installs it\n\nExamples:\nRequest: delete log files older than 7 days\n{\"command\":\"find . -name '*.log' -mtime +7 -delete\",\"explanation\":\"Find and delete .log files not modified in the last 7 days.\",\"parameters\":\"-mtime +7 = older than 7 days; -delete removes each match.\"}\n\nRequest: show the current user\n{\"command\":\"echo \\\"Current user: \$USER\\\"\",\"explanation\":\"Print the current username.\",\"parameters\":\"\$USER expands to the logged-in user.\"}\n\nRequest: install jq\n{\"command\":\"sudo apt-get install -y jq\",\"explanation\":\"Install jq, a command-line JSON processor used to slice, filter and format JSON data.\",\"parameters\":\"-y auto-confirms the install; jq is the package name.\"}\n\nRequest: 找出占用 8080 端口的进程并杀掉\n{\"command\":\"lsof -ti:8080 | xargs kill -9\",\"explanation\":\"查出监听 8080 端口的进程并强制结束。\",\"parameters\":\"-ti:8080 只输出 PID;xargs 把 PID 传给 kill -9 强制终止。\"}"
     
     # Add custom prompt extension if provided
     if [[ -n "$ZSH_AI_PROMPT_EXTEND" ]]; then
@@ -21,6 +28,32 @@ _zsh_ai_escape_json() {
     printf '%s' "$1" | perl -0777 -pe 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\r/\\r/g; s/\n/\\n/g; s/\f/\\f/g; s/\x08/\\b/g; s/[\x00-\x07\x0B\x0E-\x1F]//g'
 }
 
+# Finalize model content for output. Commands must be single-line, so newlines
+# are stripped by default; when ZSH_AI_RAW_CONTENT is set (used by the digest,
+# which needs multi-line markdown) internal newlines are preserved. Trailing
+# whitespace is always trimmed.
+_zsh_ai_finalize_content() {
+    emulate -L zsh
+    if [[ -n "$ZSH_AI_RAW_CONTENT" ]]; then
+        printf "%s" "$1" | sed 's/[[:space:]]*$//'
+    else
+        printf "%s" "$1" | tr -d '\n' | sed 's/[[:space:]]*$//'
+    fi
+}
+
+# Echo the model name for the currently selected provider.
+_zsh_ai_current_model() {
+    case "$ZSH_AI_PROVIDER" in
+        ollama)  echo "$ZSH_AI_OLLAMA_MODEL" ;;
+        gemini)  echo "$ZSH_AI_GEMINI_MODEL" ;;
+        openai)  echo "$ZSH_AI_OPENAI_MODEL" ;;
+        qwen)    echo "$ZSH_AI_QWEN_MODEL" ;;
+        grok)    echo "$ZSH_AI_GROK_MODEL" ;;
+        mistral) echo "$ZSH_AI_MISTRAL_MODEL" ;;
+        *)       echo "$ZSH_AI_ANTHROPIC_MODEL" ;;
+    esac
+}
+
 # Strip terminal control characters (including ESC) from model-provided text.
 # Model output is printed to the terminal and pushed into the line buffer, so a
 # compromised endpoint or prompt-injected reply could otherwise smuggle ANSI
@@ -28,6 +61,15 @@ _zsh_ai_escape_json() {
 _zsh_ai_sanitize() {
     emulate -L zsh
     printf '%s' "${1//[[:cntrl:]]/}"
+}
+
+# Like _zsh_ai_sanitize but for multi-line documents: keep newline (\n) and tab
+# (\t), strip every other control character (including ESC). Used by the digest
+# before writing markdown to disk, so a compromised/prompt-injected reply can't
+# smuggle ANSI escape sequences that fire when the .md file is later viewed.
+_zsh_ai_sanitize_doc() {
+    emulate -L zsh
+    printf '%s' "$1" | perl -pe 's/[\x00-\x08\x0B-\x1F\x7F]//g'
 }
 
 # Extract a top-level string field from the model's JSON response.
@@ -232,6 +274,11 @@ _zsh_ai_error_report() {
 _zsh_ai_query() {
     local query="$1"
 
+    # The token budget is interpolated verbatim into the JSON request body, so
+    # it must be a bare non-negative integer; otherwise a value like
+    # '9, "temperature":9' would inject into the payload. Reset if malformed.
+    [[ "$ZSH_AI_MAX_TOKENS" == <-> ]] || ZSH_AI_MAX_TOKENS=2048
+
     if [[ "$ZSH_AI_PROVIDER" == "ollama" ]]; then
         # Check if Ollama is running first
         if ! _zsh_ai_check_ollama; then
@@ -260,18 +307,23 @@ _zsh_ai_execute_command() {
     local query="$1"
     # Note: assign then capture $? separately - `local cmd=$(...)` would mask the
     # command substitution's exit code with the (always-0) exit code of `local`.
-    local cmd rc
+    local cmd rc ok=0
     cmd=$(_zsh_ai_query "$query")
     rc=$?
 
     if (( rc == 0 )) && [[ -n "$cmd" ]] && [[ "$cmd" != "Error:"* ]] && [[ "$cmd" != "API Error:"* ]]; then
-        echo "$cmd"
-        return 0
-    else
-        # Return error (covers provider errors that don't use the Error: prefix)
-        echo "$cmd"
-        return 1
+        ok=1
     fi
+
+    # Log the request/response (best-effort; never affects the main flow).
+    # Runs here, in the same (sub)shell as _zsh_ai_query, so the diagnostics
+    # globals it sets (ZSH_AI_LAST_STATUS, ...) are still visible.
+    if (( ${+functions[_zsh_ai_log_request]} )); then
+        _zsh_ai_log_request "$query" "$cmd" "$rc" "$ok" 2>/dev/null
+    fi
+
+    echo "$cmd"
+    (( ok )) && return 0 || return 1
 }
 
 # Optional: Add a helper function for users who prefer explicit commands

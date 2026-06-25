@@ -83,9 +83,9 @@ EOF
             fi
             return 1
         fi
-        # Clean up the response - remove newlines and trailing whitespace
-        # Commands should be single-line for shell execution
-        result=$(printf "%s" "$result" | tr -d '\n' | sed 's/[[:space:]]*$//')
+        # Clean up the response - commands are single-line; the digest keeps
+        # newlines via ZSH_AI_RAW_CONTENT (see _zsh_ai_finalize_content)
+        result=$(_zsh_ai_finalize_content "$result")
         printf "%s" "$result"
     else
         # Fallback parsing without jq - handle responses with newlines

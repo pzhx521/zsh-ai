@@ -25,6 +25,20 @@
 # reply comes back empty (finish_reason=length). 2048 leaves room for both.
 : ${ZSH_AI_MAX_TOKENS:="2048"}
 
+# Request logging + daily digest -------------------------------------------
+# When ZSH_AI_LOG_DIR is set, every request is appended as one JSON line to
+# $ZSH_AI_LOG_DIR/YYYY-MM-DD.jsonl. zsh-ai-digest summarizes a day's log into
+# $ZSH_AI_LOG_DIR/YYYY-MM-DD.md. Leave ZSH_AI_LOG_DIR empty to disable logging.
+: ${ZSH_AI_LOG_DIR:=""}
+# The digest produces a long markdown doc, so it needs a far larger output
+# budget than the per-command cap. Reuses ZSH_AI_PROVIDER/model.
+: ${ZSH_AI_DIGEST_MAX_TOKENS:="16384"}
+
+# Return 0 if request logging is enabled (ZSH_AI_LOG_DIR set), 1 otherwise
+_zsh_ai_log_enabled() {
+    [[ -n "$ZSH_AI_LOG_DIR" ]]
+}
+
 # Inline trigger configuration
 : ${ZSH_AI_COMMENT_HOOK:="true"}  # Set to false/off/no/0 to disable the inline trigger widget entirely
 : ${ZSH_AI_TRIGGER:="# "}  # Prompt prefix that triggers AI (e.g. ",," instead of "# ")

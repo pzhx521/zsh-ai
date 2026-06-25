@@ -16,6 +16,8 @@ This repo is a small zsh plugin that turns natural-language prompts into shell c
 - `lib/context.zsh`: directory, project, git, and OS context
 - `lib/widget.zsh`: `# ...` comment flow
 - `lib/utils.zsh`: prompt construction, provider routing, `zsh-ai`
+- `lib/logging.zsh`: JSONL request logging (locked appends), gated by `ZSH_AI_LOG_DIR`
+- `lib/digest.zsh`: `zsh-ai-digest` daily knowledge-base generator
 - `lib/providers/`: provider modules
 
 ## Invariants

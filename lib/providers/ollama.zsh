@@ -57,9 +57,12 @@ EOF
             fi
             return 1
         fi
-        # Clean up the response - remove markdown code fences, newlines, and trailing whitespace
-        # Commands should be single-line for shell execution
-        result=$(printf "%s" "$result" | sed 's/^```[a-z]*$//' | tr -d '\n' | sed 's/[[:space:]]*$//')
+        # Clean up the response - commands are single-line; strip markdown code
+        # fences. The digest keeps newlines and fences via ZSH_AI_RAW_CONTENT.
+        if [[ -z "$ZSH_AI_RAW_CONTENT" ]]; then
+            result=$(printf "%s" "$result" | sed 's/^```[a-z]*$//')
+        fi
+        result=$(_zsh_ai_finalize_content "$result")
         printf "%s" "$result"
     else
         # Fallback parsing without jq - handle responses with newlines
