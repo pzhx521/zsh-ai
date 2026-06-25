@@ -213,7 +213,55 @@ test_max_tokens_guard_rejects_non_integer() {
     teardown_test_env
 }
 
+# --- R1: curl carries timeouts ----------------------------------------------
+# curl runs inside $(...), a subshell, so capture its args via a file.
+test_curl_adds_timeouts() {
+    setup_test_env
+    local TEST_DIR=$(create_test_dir)
+    curl() { print -r -- "$*" > "$TEST_DIR/args"; }
+    _zsh_ai_curl "http://example" "{}" >/dev/null
+    local args="$(cat "$TEST_DIR/args")"
+    assert_contains "$args" "--connect-timeout 10"
+    assert_contains "$args" "--max-time 60"
+    unfunction curl 2>/dev/null
+    cleanup_test_dir "$TEST_DIR"
+    teardown_test_env
+}
+
+test_curl_timeout_validation() {
+    setup_test_env
+    local TEST_DIR=$(create_test_dir)
+    curl() { print -r -- "$*" > "$TEST_DIR/args"; }
+    ZSH_AI_CONNECT_TIMEOUT='evil; rm -rf /' ZSH_AI_TIMEOUT='abc' \
+        _zsh_ai_curl "http://example" "{}" >/dev/null
+    local args="$(cat "$TEST_DIR/args")"
+    assert_contains "$args" "--connect-timeout 10"
+    assert_contains "$args" "--max-time 60"
+    assert_not_contains "$args" "rm -rf"
+    unfunction curl 2>/dev/null
+    cleanup_test_dir "$TEST_DIR"
+    teardown_test_env
+}
+
+# --- R3: mktemp failure is handled, not a crash -----------------------------
+test_zsh_ai_handles_mktemp_failure() {
+    setup_test_env
+    export ZSH_AI_PROVIDER="openai"
+    mktemp() { return 1; }
+    local out rc
+    out=$(zsh-ai "find big files" 2>&1)
+    rc=$?
+    assert_contains "$out" "无法创建临时文件"
+    assert_equals "$rc" "1"
+    unfunction mktemp 2>/dev/null
+    unset ZSH_AI_PROVIDER
+    teardown_test_env
+}
+
 # Run tests
+run_test "curl carries connect/max timeouts" test_curl_adds_timeouts
+run_test "curl timeout values are validated" test_curl_timeout_validation
+run_test "zsh-ai handles mktemp failure" test_zsh_ai_handles_mktemp_failure
 run_test "Log dir is 700 and file is 600" test_log_files_have_restrictive_perms
 run_test "sanitize_doc strips ESC, keeps newline/tab" test_sanitize_doc_strips_escapes_keeps_newlines
 run_test "max_tokens guard rejects non-integer" test_max_tokens_guard_rejects_non_integer

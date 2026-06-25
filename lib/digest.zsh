@@ -144,6 +144,8 @@ zsh-ai-digest() {
     ZSH_AI_SYSTEM_PROMPT="$(_zsh_ai_digest_system_prompt "$date_str")"
     local ZSH_AI_RAW_CONTENT=1
     local ZSH_AI_MAX_TOKENS="${ZSH_AI_DIGEST_MAX_TOKENS:-16384}"
+    # The digest streams a long document, so allow a larger request timeout.
+    local ZSH_AI_TIMEOUT="${ZSH_AI_DIGEST_TIMEOUT:-180}"
 
     echo "zsh-ai-digest: 正在用 ${ZSH_AI_PROVIDER}/$(_zsh_ai_current_model) 汇总 ${date_str} ..." >&2
 

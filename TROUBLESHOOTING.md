@@ -94,6 +94,19 @@ may run out before writing the command. Raise the cap:
 export ZSH_AI_MAX_TOKENS="4096"
 ```
 
+## Requests Hang Or Time Out
+
+Requests are bounded by `ZSH_AI_CONNECT_TIMEOUT` (default 10s) and
+`ZSH_AI_TIMEOUT` (default 60s); a timeout surfaces as a connection error with
+diagnostics. On a slow link or large model, raise them:
+
+```bash
+export ZSH_AI_TIMEOUT="120"
+```
+
+The digest uses `ZSH_AI_DIGEST_TIMEOUT` (default 180s) since it streams a long
+document.
+
 ## Inspecting Requests
 
 When logging is enabled (`ZSH_AI_LOG_DIR`), every request is recorded as JSON in

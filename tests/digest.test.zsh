@@ -102,7 +102,7 @@ test_digest_writes_markdown_with_overrides() {
 
     # Capture the overrides the digest sets, return multi-line markdown
     _zsh_ai_query() {
-        echo "RAW=${ZSH_AI_RAW_CONTENT:-0} MAX=${ZSH_AI_MAX_TOKENS} SYS=${#ZSH_AI_SYSTEM_PROMPT}" >> "$TEST_DIR/_seen"
+        echo "RAW=${ZSH_AI_RAW_CONTENT:-0} MAX=${ZSH_AI_MAX_TOKENS} TMO=${ZSH_AI_TIMEOUT} SYS=${#ZSH_AI_SYSTEM_PROMPT}" >> "$TEST_DIR/_seen"
         print -r -- "# 今日命令知识库 · 2026-06-25"
         print -r -- ""
         print -r -- "## 高频命令"
@@ -118,6 +118,7 @@ test_digest_writes_markdown_with_overrides() {
     # overrides were in effect during the model call
     assert_contains "$(cat "$TEST_DIR/_seen")" "RAW=1"
     assert_contains "$(cat "$TEST_DIR/_seen")" "MAX=16384"
+    assert_contains "$(cat "$TEST_DIR/_seen")" "TMO=180"
 
     unfunction _zsh_ai_query 2>/dev/null
     cleanup_test_dir "$TEST_DIR"

@@ -1,1 +1,5 @@
 .npm
+
+# local secrets / machine config (never commit)
+scripts/*.local.zsh
+*.env

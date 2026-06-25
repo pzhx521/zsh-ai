@@ -287,15 +287,28 @@ opens with a disclaimer: its commands (and extended demos) are AI-generated and
 unverified — confirm before running. Anything you actually run still goes through
 the live safety/blacklist layer.
 
-Run it nightly at 18:00 via cron (the digest covers that day's 00:00–18:00):
+Run it nightly at 18:00 via cron (the digest covers that day's 00:00–18:00).
+cron has no interactive shell, so use the bundled launcher
+`scripts/digest-cron.zsh`: it sources a repo-external env file for your
+provider/key, then loads the plugin and runs the digest — **no secrets in the
+repo**.
 
-```cron
-0 18 * * * ZSH_AI_LOG_DIR="$HOME/.zsh-ai/logs" OPENAI_API_KEY="…" ZSH_AI_PROVIDER=openai zsh -ic 'zsh-ai-digest' >> "$HOME/.zsh-ai/logs/digest.cron.log" 2>&1
+Put your secrets in `~/.config/zsh-ai/env` (chmod 600), outside the repo:
+
+```bash
+export ZSH_AI_LOG_DIR="$HOME/.zsh-ai/logs"
+export ZSH_AI_PROVIDER="openai"
+export OPENAI_API_KEY="sk-…"
 ```
 
-> cron runs without your interactive shell, so pass the provider/key/log-dir
-> environment explicitly (or source a file that sets them) and use `zsh -ic` so
-> the plugin is loaded.
+Then add the cron line (point it at your clone):
+
+```cron
+0 18 * * * /usr/bin/zsh /path/to/zsh-ai/scripts/digest-cron.zsh >> "$HOME/.zsh-ai/logs/digest.cron.log" 2>&1
+```
+
+> Override the env-file path with `ZSH_AI_ENV_FILE`. Test it once by hand first:
+> `zsh scripts/digest-cron.zsh`.
 
 ## Configuration
 

@@ -39,6 +39,13 @@ _zsh_ai_log_enabled() {
     [[ -n "$ZSH_AI_LOG_DIR" ]]
 }
 
+# Network timeouts (seconds) ------------------------------------------------
+# Without these, a stalled connection makes curl hang forever - the interactive
+# spinner spins indefinitely and a nightly cron digest becomes a zombie process.
+: ${ZSH_AI_CONNECT_TIMEOUT:="10"}  # max time to establish the TCP/TLS connection
+: ${ZSH_AI_TIMEOUT:="60"}          # max time for the whole request
+: ${ZSH_AI_DIGEST_TIMEOUT:="180"}  # the digest streams a long doc, so allow more
+
 # Inline trigger configuration
 : ${ZSH_AI_COMMENT_HOOK:="true"}  # Set to false/off/no/0 to disable the inline trigger widget entirely
 : ${ZSH_AI_TRIGGER:="# "}  # Prompt prefix that triggers AI (e.g. ",," instead of "# ")

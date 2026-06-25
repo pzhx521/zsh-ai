@@ -4,7 +4,7 @@
 
 # Function to check if Ollama is running
 _zsh_ai_check_ollama() {
-    curl -s "${ZSH_AI_OLLAMA_URL}/api/tags" >/dev/null 2>&1
+    curl -s --connect-timeout 3 --max-time 5 "${ZSH_AI_OLLAMA_URL}/api/tags" >/dev/null 2>&1
     return $?
 }
 

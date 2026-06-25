@@ -230,8 +230,15 @@ _zsh_ai_curl() {
     ZSH_AI_LAST_STATUS=""
     ZSH_AI_LAST_RESPONSE=""
 
+    # Bound the request so a stalled connection can't hang forever. Validate as
+    # integers (they are passed to curl as-is) and fall back if malformed.
+    local ctmo="${ZSH_AI_CONNECT_TIMEOUT}" mtmo="${ZSH_AI_TIMEOUT}"
+    [[ "$ctmo" == <-> ]] || ctmo=10
+    [[ "$mtmo" == <-> ]] || mtmo=60
+
     local raw rc
-    raw=$(curl -s -w $'\nZSHAI_HTTP_STATUS:%{http_code}' "$url" "$@" \
+    raw=$(curl -s --connect-timeout "$ctmo" --max-time "$mtmo" \
+        -w $'\nZSHAI_HTTP_STATUS:%{http_code}' "$url" "$@" \
         --header "content-type: application/json" \
         --data "$payload" 2>&1)
     rc=$?
@@ -356,8 +363,12 @@ zsh-ai() {
     local frame=0
     
     # Create a temp file for the response
-    local tmpfile=$(mktemp)
-    
+    local tmpfile=$(mktemp 2>/dev/null)
+    if [[ -z "$tmpfile" ]]; then
+        print -P "%F{red}❌ zsh-ai: 无法创建临时文件(检查 TMPDIR / 磁盘空间)%f"
+        return 1
+    fi
+
     # Disable job control notifications (same as widget)
     setopt local_options no_monitor no_notify no_bg_nice
 

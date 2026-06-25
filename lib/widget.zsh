@@ -35,8 +35,16 @@ _zsh_ai_accept_line() {
         local frame=0
         
         # Create a temp file for the response
-        local tmpfile=$(mktemp)
-        
+        local tmpfile=$(mktemp 2>/dev/null)
+        if [[ -z "$tmpfile" ]]; then
+            echo ""
+            print -P "%F{red}❌ zsh-ai: 无法创建临时文件(检查 TMPDIR / 磁盘空间)%f"
+            BUFFER="$saved_buffer"
+            CURSOR=$#BUFFER
+            zle reset-prompt
+            return
+        fi
+
         # Disable job control notifications
         setopt local_options no_monitor no_notify no_bg_nice
         

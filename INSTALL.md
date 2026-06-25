@@ -207,6 +207,17 @@ chain-of-thought and would otherwise return an empty reply:
 export ZSH_AI_MAX_TOKENS="2048"
 ```
 
+## Network Timeouts
+
+Requests are bounded so a stalled connection can't hang the prompt (or a nightly
+cron digest) forever:
+
+```bash
+export ZSH_AI_CONNECT_TIMEOUT="10"   # seconds to establish the connection
+export ZSH_AI_TIMEOUT="60"           # seconds for the whole request
+export ZSH_AI_DIGEST_TIMEOUT="180"   # zsh-ai-digest streams a long document
+```
+
 ## Request Logging & Daily Digest
 
 Set a directory to log every request as one JSON line per day; leave it unset to
@@ -221,11 +232,20 @@ export ZSH_AI_LOG_DIR="$HOME/.zsh-ai/logs"
 reuses your provider but lifts the token cap to `ZSH_AI_DIGEST_MAX_TOKENS`
 (default `16384`). Days with no successfully-generated command are skipped.
 
-Run it nightly at 18:00 with cron. cron has no interactive shell, so pass the
-environment explicitly and use `zsh -ic` so the plugin loads:
+Run it nightly at 18:00 with cron via the bundled launcher
+`scripts/digest-cron.zsh`, which loads a repo-external env file (default
+`~/.config/zsh-ai/env`, chmod 600) for your provider/key, then the plugin — so
+no secret lives in the repo:
+
+```bash
+# ~/.config/zsh-ai/env  (chmod 600)
+export ZSH_AI_LOG_DIR="$HOME/.zsh-ai/logs"
+export ZSH_AI_PROVIDER="openai"
+export OPENAI_API_KEY="sk-…"
+```
 
 ```cron
-0 18 * * * ZSH_AI_LOG_DIR="$HOME/.zsh-ai/logs" ZSH_AI_PROVIDER=openai OPENAI_API_KEY="sk-…" zsh -ic 'zsh-ai-digest' >> "$HOME/.zsh-ai/logs/digest.cron.log" 2>&1
+0 18 * * * /usr/bin/zsh /path/to/zsh-ai/scripts/digest-cron.zsh >> "$HOME/.zsh-ai/logs/digest.cron.log" 2>&1
 ```
 
 See the [README](README.md) for output modes, safety/blacklist, Chinese
