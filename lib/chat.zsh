@@ -110,8 +110,13 @@ _zsh_ai_chat_complete() {
     emulate -L zsh
     ZSH_AI_CHAT_REPLY=""; ZSH_AI_CHAT_ERR=""
     local provider="$ZSH_AI_PROVIDER"
+    # Token budget: empty = unlimited (omit the cap so the model uses its own
+    # maximum, since chat replies can be long). Only a bare integer is honored
+    # as a cap; anything else is treated as unlimited (and is never interpolated
+    # into the JSON, so it can't inject). Anthropic REQUIRES max_tokens, so it
+    # falls back to a safe value below.
     local maxtok="${ZSH_AI_CHAT_MAX_TOKENS}"
-    [[ "$maxtok" == <-> ]] || maxtok=2048
+    [[ "$maxtok" == <-> ]] || maxtok=""
     # Chat replies are free-form prose, so keep newlines when finalizing.
     local ZSH_AI_RAW_CONTENT=1
     # Allow a longer timeout than a single command needs.
@@ -125,7 +130,7 @@ _zsh_ai_chat_complete() {
             payload=$(cat <<EOF
 {
     "model": "$ZSH_AI_ANTHROPIC_MODEL",
-    "max_tokens": ${maxtok},
+    "max_tokens": ${maxtok:-8192},
     "system": "$(_zsh_ai_escape_json "$effective_system")",
     "messages": $(_zsh_ai_chat_msgs_json 0)
 }
@@ -138,11 +143,12 @@ EOF
             jqf='.content[0].text'; field=text
             ;;
         gemini)
+            local gmaxtok=""; [[ -n "$maxtok" ]] && gmaxtok=", \"maxOutputTokens\": ${maxtok}"
             payload=$(cat <<EOF
 {
     "contents": $(_zsh_ai_chat_contents_json),
     "systemInstruction": { "parts": [ { "text": "$(_zsh_ai_escape_json "$effective_system")" } ] },
-    "generationConfig": { "temperature": 0.3, "maxOutputTokens": ${maxtok}, "thinkingConfig": { "thinkingBudget": 0 } }
+    "generationConfig": { "temperature": 0.3${gmaxtok}, "thinkingConfig": { "thinkingBudget": 0 } }
 }
 EOF
 )
@@ -156,13 +162,14 @@ EOF
                 ZSH_AI_CHAT_ERR="Ollama is not running at $ZSH_AI_OLLAMA_URL"
                 return 1
             fi
+            local onum=""; [[ -n "$maxtok" ]] && onum=", \"num_predict\": ${maxtok}"
             payload=$(cat <<EOF
 {
     "model": "$ZSH_AI_OLLAMA_MODEL",
     "messages": $(_zsh_ai_chat_msgs_json 1),
     "stream": false,
     "think": false,
-    "options": { "temperature": 0.3, "num_predict": ${maxtok} }
+    "options": { "temperature": 0.3${onum} }
 }
 EOF
 )
@@ -186,11 +193,14 @@ EOF
                 grok)    model="$ZSH_AI_GROK_MODEL";    turl="$ZSH_AI_GROK_URL";    key="$XAI_API_KEY" ;;
                 mistral) model="$ZSH_AI_MISTRAL_MODEL"; turl="$ZSH_AI_MISTRAL_URL"; key="$MISTRAL_API_KEY" ;;
             esac
+            # Trailing options: the token cap (only when set) and temperature.
+            local opts=""
+            [[ -n "$maxtok" ]] && opts+=$',\n    "'"${token_param}"$'": '"${maxtok}"
+            opts+="$temp"
             payload=$(cat <<EOF
 {
     "model": "${model}",
-    "messages": $(_zsh_ai_chat_msgs_json 1),
-    "${token_param}": ${maxtok}${temp}
+    "messages": $(_zsh_ai_chat_msgs_json 1)${opts}
 }
 EOF
 )
@@ -467,7 +477,7 @@ _zsh_ai_chat_compress() {
     fi
 
     print -r -- "${gy}  正在压缩对话上下文…${rs}" >&2
-    local ZSH_AI_CHAT_MAX_TOKENS="${ZSH_AI_CHAT_COMPRESS_MAX_TOKENS:-2048}"
+    # Reuses the same (by default unlimited) ZSH_AI_CHAT_MAX_TOKENS as a reply.
     _zsh_ai_chat_oneshot "$(_zsh_ai_chat_compress_prompt)" "$rendered"
     local summary_rc=$? summary="$ZSH_AI_CHAT_REPLY"
     if (( summary_rc != 0 )) || [[ -z "$summary" ]]; then

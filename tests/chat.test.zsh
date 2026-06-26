@@ -223,6 +223,71 @@ test_chat_complete_openai_parses_content() {
     teardown_test_env
 }
 
+test_chat_unlimited_omits_token_cap() {
+    setup_test_env
+    export ZSH_AI_PROVIDER="openai"
+    export OPENAI_API_KEY="sk-test"
+    export ZSH_AI_OPENAI_MODEL="gpt-4o"   # non-reasoning -> would carry temperature
+    unset ZSH_AI_CHAT_MAX_TOKENS          # default = unlimited
+    mock_curl_response '{"choices":[{"message":{"content":"ok"}}]}'
+    local effective_system="S"; local -a turn_roles turn_contents
+    turn_roles=(user); turn_contents=("hi")
+    _zsh_ai_chat_complete
+    # No token cap key should appear in the sent payload.
+    assert_not_contains "$ZSH_AI_LAST_REQUEST" "max_tokens"
+    assert_not_contains "$ZSH_AI_LAST_REQUEST" "max_completion_tokens"
+    unset ZSH_AI_PROVIDER OPENAI_API_KEY ZSH_AI_OPENAI_MODEL
+    teardown_test_env
+}
+
+test_chat_cap_when_set() {
+    setup_test_env
+    export ZSH_AI_PROVIDER="openai"
+    export OPENAI_API_KEY="sk-test"
+    export ZSH_AI_OPENAI_MODEL="gpt-5.4-mini"
+    export ZSH_AI_CHAT_MAX_TOKENS="500"
+    mock_curl_response '{"choices":[{"message":{"content":"ok"}}]}'
+    local effective_system="S"; local -a turn_roles turn_contents
+    turn_roles=(user); turn_contents=("hi")
+    _zsh_ai_chat_complete
+    assert_contains "$ZSH_AI_LAST_REQUEST" '"max_completion_tokens": 500'
+    unset ZSH_AI_PROVIDER OPENAI_API_KEY ZSH_AI_OPENAI_MODEL ZSH_AI_CHAT_MAX_TOKENS
+    teardown_test_env
+}
+
+test_chat_non_integer_cap_treated_as_unlimited() {
+    setup_test_env
+    export ZSH_AI_PROVIDER="openai"
+    export OPENAI_API_KEY="sk-test"
+    export ZSH_AI_OPENAI_MODEL="gpt-5.4-mini"
+    export ZSH_AI_CHAT_MAX_TOKENS='9, "temperature":9'   # injection attempt
+    mock_curl_response '{"choices":[{"message":{"content":"ok"}}]}'
+    local effective_system="S"; local -a turn_roles turn_contents
+    turn_roles=(user); turn_contents=("hi")
+    _zsh_ai_chat_complete
+    # Malformed value is dropped, never interpolated into the JSON body.
+    assert_not_contains "$ZSH_AI_LAST_REQUEST" 'temperature":9'
+    assert_not_contains "$ZSH_AI_LAST_REQUEST" "max_completion_tokens"
+    unset ZSH_AI_PROVIDER OPENAI_API_KEY ZSH_AI_OPENAI_MODEL ZSH_AI_CHAT_MAX_TOKENS
+    teardown_test_env
+}
+
+test_chat_anthropic_always_caps() {
+    setup_test_env
+    export ZSH_AI_PROVIDER="anthropic"
+    export ANTHROPIC_API_KEY="sk-test"
+    export ZSH_AI_ANTHROPIC_MODEL="claude-haiku-4-5"
+    unset ZSH_AI_CHAT_MAX_TOKENS          # unlimited everywhere except anthropic
+    mock_curl_response '{"content":[{"text":"ok"}]}'
+    local effective_system="S"; local -a turn_roles turn_contents
+    turn_roles=(user); turn_contents=("hi")
+    _zsh_ai_chat_complete
+    # Anthropic requires max_tokens, so it falls back to 8192.
+    assert_contains "$ZSH_AI_LAST_REQUEST" '"max_tokens": 8192'
+    unset ZSH_AI_PROVIDER ANTHROPIC_API_KEY ZSH_AI_ANTHROPIC_MODEL
+    teardown_test_env
+}
+
 test_chat_complete_surfaces_api_error() {
     setup_test_env
     export ZSH_AI_PROVIDER="openai"
@@ -274,6 +339,10 @@ run_test "Agent dates and files listed desc, empty skipped" test_agent_dates_and
 run_test "Compression rewrites main + snapshots raw" test_compress_rewrites_and_snapshots
 run_test "Compression is a no-op with no turns" test_compress_noop_when_no_turns
 run_test "chat_complete parses OpenAI content" test_chat_complete_openai_parses_content
+run_test "Unlimited (default) omits token cap" test_chat_unlimited_omits_token_cap
+run_test "Integer ZSH_AI_CHAT_MAX_TOKENS caps reply" test_chat_cap_when_set
+run_test "Non-integer cap is dropped (no injection)" test_chat_non_integer_cap_treated_as_unlimited
+run_test "Anthropic always sends max_tokens (8192 fallback)" test_chat_anthropic_always_caps
 run_test "chat_complete surfaces API error" test_chat_complete_surfaces_api_error
 run_test "Chat requires ZSH_AI_LOG_DIR" test_chat_requires_log_dir
 run_test "Chat errors on unknown agent" test_chat_errors_on_unknown_agent

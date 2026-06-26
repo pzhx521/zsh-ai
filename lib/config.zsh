@@ -45,8 +45,11 @@ _zsh_ai_log_enabled() {
 # (sessions are stored under ZSH_AI_LOG_DIR/sessions/, so chat needs that set).
 : ${ZSH_AI_AGENTS_DIR:="$HOME/.config/zsh-ai/agents"}
 : ${ZSH_AI_CHAT_MAX_ROUNDS:="10"}            # offer to compress every N rounds
-: ${ZSH_AI_CHAT_MAX_TOKENS:="2048"}          # output cap for a chat reply
-: ${ZSH_AI_CHAT_COMPRESS_MAX_TOKENS:="2048"} # output cap for the summary
+# Output cap for a chat reply (and for the compression summary). Empty = no cap:
+# the model uses its own maximum, since chat replies are often long. Set a bare
+# integer to cap. NOTE: Anthropic requires max_tokens, so when unset it falls
+# back to 8192 for that provider only.
+: ${ZSH_AI_CHAT_MAX_TOKENS:=""}
 : ${ZSH_AI_CHAT_TIMEOUT:="120"}              # request timeout for a chat turn
 : ${ZSH_AI_AGENT_TAB:="true"}                # bind "@"+Tab to agent completion
 

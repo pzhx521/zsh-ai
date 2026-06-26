@@ -416,10 +416,15 @@ Tune [agent chat](#agent-chat):
 ```bash
 export ZSH_AI_AGENTS_DIR="$HOME/.config/zsh-ai/agents"  # where agent JSON lives
 export ZSH_AI_CHAT_MAX_ROUNDS="10"      # offer to compress history every N rounds
-export ZSH_AI_CHAT_MAX_TOKENS="2048"    # output cap for a chat reply
+export ZSH_AI_CHAT_MAX_TOKENS=""        # output cap; empty = unlimited (default)
 export ZSH_AI_CHAT_TIMEOUT="120"        # request timeout (s) for a chat turn
 export ZSH_AI_AGENT_TAB="false"         # stop binding "@"+Tab to agent completion
 ```
+
+> Chat replies (and compression summaries) are uncapped by default —
+> `ZSH_AI_CHAT_MAX_TOKENS` is empty, so the model uses its own maximum. Set a
+> bare integer to cap output. (Anthropic's API requires `max_tokens`, so when
+> uncapped it falls back to `8192` for that provider only.)
 
 Change the inline trigger, or disable the comment hook altogether (handy when you
 paste code blocks that start with `#` comments):
