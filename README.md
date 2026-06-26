@@ -418,8 +418,12 @@ export ZSH_AI_AGENTS_DIR="$HOME/.config/zsh-ai/agents"  # where agent JSON lives
 export ZSH_AI_CHAT_MAX_ROUNDS="10"      # offer to compress history every N rounds
 export ZSH_AI_CHAT_MAX_TOKENS=""        # output cap; empty = unlimited (default)
 export ZSH_AI_CHAT_TIMEOUT="120"        # request timeout (s) for a chat turn
-export ZSH_AI_AGENT_TAB="false"         # stop binding "@"+Tab to agent completion
+export ZSH_AI_AGENT_TAB="false"         # disable "@" agent completion
 ```
+
+> `@` completion hooks the completion system for command words matching `@*`, so
+> it uses your existing Tab (menu, fzf-tab, …) and never rebinds the Tab key —
+> normal completion is untouched.
 
 > Chat replies (and compression summaries) are uncapped by default —
 > `ZSH_AI_CHAT_MAX_TOKENS` is empty, so the model uses its own maximum. Set a

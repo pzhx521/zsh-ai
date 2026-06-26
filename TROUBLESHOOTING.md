@@ -115,11 +115,14 @@ document.
 ls "${ZSH_AI_AGENTS_DIR:-$HOME/.config/zsh-ai/agents}"   # expect <id>.json files
 ```
 
-Agent ids may only contain letters, digits, `_` and `-`. If Tab completion does
-not kick in at all, your config may rebind Tab after the plugin loads; set
-`export ZSH_AI_AGENT_TAB="false"` and start the chat explicitly instead:
+Agent ids may only contain letters, digits, `_` and `-`. `@` completion hooks
+the completion system (command words matching `@*`) and does **not** rebind the
+Tab key, so it works alongside menu completion, fzf-tab, etc. It needs the
+completion system initialized (`compinit`), which oh-my-zsh and most setups do
+already. If it still doesn't trigger, disable it and start the chat explicitly:
 
 ```bash
+export ZSH_AI_AGENT_TAB="false"
 zsh-ai-chat english-teacher
 ```
 

@@ -101,26 +101,7 @@ test_agents_dir_default() {
     teardown_test_env
 }
 
-# --- Tab trigger scoping ----------------------------------------------------
-# (buffer, lbuffer) -> should agent completion fire?
-test_tab_should_complete_scoping() {
-    setup_test_env
-    # YES: typing the leading @id token
-    _zsh_ai_agent_tab_should_complete "@eng"        "@eng"     || TEST_FAILED=1
-    _zsh_ai_agent_tab_should_complete "@english"    "@eng"     || TEST_FAILED=1  # cursor mid-token
-    _zsh_ai_agent_tab_should_complete "@"           "@"        || TEST_FAILED=1
-    # NO: not a leading @ (normal commands / paths / refs)
-    _zsh_ai_agent_tab_should_complete "git status"  "git st"   && TEST_FAILED=1
-    _zsh_ai_agent_tab_should_complete "scp user@ho" "scp user@ho" && TEST_FAILED=1  # @ mid-word
-    _zsh_ai_agent_tab_should_complete "npm i @ang"  "npm i @ang"  && TEST_FAILED=1  # @ in a later word
-    _zsh_ai_agent_tab_should_complete "ls ~/@x"     "ls ~/@x"  && TEST_FAILED=1
-    # NO: leading @ but cursor already past the first word (typing a message)
-    _zsh_ai_agent_tab_should_complete "@eng hello"  "@eng hel" && TEST_FAILED=1
-    teardown_test_env
-}
-
 # Run all tests
-run_test "Tab agent-completion only on leading @ token" test_tab_should_complete_scoping
 run_test "Agent id validation blocks traversal/slash/dots" test_id_valid
 run_test "Agent ids are listed" test_agent_ids_listed
 run_test "Agent ids empty when dir missing" test_agent_ids_empty_when_no_dir

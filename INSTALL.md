@@ -277,7 +277,7 @@ export ZSH_AI_AGENTS_DIR="$HOME/.config/zsh-ai/agents"
 export ZSH_AI_CHAT_MAX_ROUNDS="10"   # offer to compress every N rounds
 export ZSH_AI_CHAT_MAX_TOKENS=""     # output cap; empty = unlimited (default)
 export ZSH_AI_CHAT_TIMEOUT="120"     # request timeout (s) per chat turn
-export ZSH_AI_AGENT_TAB="true"       # set false to leave Tab untouched
+export ZSH_AI_AGENT_TAB="true"       # set false to disable "@" agent completion
 ```
 
 ## Inline Trigger

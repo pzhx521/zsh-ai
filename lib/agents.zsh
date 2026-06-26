@@ -87,66 +87,42 @@ _zsh_ai_agent_prompt() {
     _zsh_ai_agent_field "$1" prompt
 }
 
-# --- @ + Tab completion -----------------------------------------------------
+# --- @ completion -----------------------------------------------------------
 #
-# Completion is delegated: a Tab widget checks whether the word under the cursor
-# starts with "@". If so it completes agent ids; otherwise it falls back to the
-# user's original Tab binding, so normal completion is untouched.
+# Agents are completed by hooking the COMPLETION SYSTEM, not the Tab key: a
+# command-position word matching "@*" completes to agent ids. This means we
+# never rebind Tab — your existing Tab/completion (menu, fzf-tab, zsh-autocomplete,
+# …) is used as-is and is completely untouched. It also gives exactly the right
+# scoping for free: only the FIRST word of a line starting with "@" triggers it;
+# "@" inside a later word or mid-word (user@host, @scope/pkg, @{upstream}) never
+# does, because those aren't in command position.
 
-# Completion widget body (runs in completion context, so compadd is available).
-_zsh_ai_complete_agents_inner() {
-    local -a raw ids names
+# Completion function (runs in completion context, so compadd/_describe work).
+_zsh_ai_agents() {
+    local -a raw ids disp
     raw=( ${(f)"$(_zsh_ai_agent_ids)"} )
     local id
     for id in "${raw[@]}"; do
         [[ -n "$id" ]] || continue
         ids+=("@$id")
-        names+=("$(_zsh_ai_agent_name "$id")")
+        disp+=("@$id:$(_zsh_ai_agent_name "$id")")
     done
     (( ${#ids} )) || return 1
-    # Show the human name as the description next to each @id candidate.
-    compadd -d names -- "${ids[@]}"
-}
-
-# Decide whether Tab should complete agents: ONLY while typing a leading
-# "@<id>" token — the whole line begins with "@" AND the cursor is still inside
-# that first word (no space to its left). Returns 0 (yes) / 1 (no).
-# Args: <buffer> <lbuffer>. Every other case — any line not starting with "@",
-# a later word (e.g. the first chat message), or "@" mid-word like user@host /
-# @scope/pkg / @{upstream} — returns 1 so normal completion is untouched.
-_zsh_ai_agent_tab_should_complete() {
-    local buffer="$1" lbuffer="$2"
-    [[ "$buffer" == @* && "$lbuffer" != *[[:space:]]* ]]
-}
-
-# The Tab widget: agent completion only per the predicate above; original Tab
-# binding otherwise, so normal completion is never disturbed.
-_zsh_ai_tab_widget() {
-    if _zsh_ai_agent_tab_should_complete "$BUFFER" "$LBUFFER"; then
-        zle _zsh_ai_complete_agents && return
+    if (( ${+functions[_describe]} )); then
+        _describe -t zsh-ai-agents 'zsh-ai agent' disp ids
+    else
+        compadd -- "${ids[@]}"
     fi
-    zle "${_zsh_ai_orig_tab:-expand-or-complete}"
 }
 
-# Register the Tab widget once ZLE is ready. Captures whatever Tab was bound to
-# so the fallback preserves the user's existing completion behavior.
+# Register the "@*" command-pattern completion once the completion system is up.
+# Deferred to the first precmd so compdef exists even when the plugin is sourced
+# before compinit.
 _zsh_ai_init_agent_completion() {
     _zsh_ai_agent_tab_enabled || return
 
     _zsh_ai_do_agent_completion_init() {
-        # Remember the current Tab binding to fall back to (default if unset).
-        local binding current
-        binding="$(bindkey '^I')"        # e.g.  "^I" expand-or-complete
-        current="${binding##* }"
-        if [[ -n "$current" && "$current" != _zsh_ai_tab_widget && "$current" != undefined-key ]]; then
-            typeset -g _zsh_ai_orig_tab="$current"
-        else
-            typeset -g _zsh_ai_orig_tab="expand-or-complete"
-        fi
-        zmodload zsh/complist 2>/dev/null
-        zle -C _zsh_ai_complete_agents menu-complete _zsh_ai_complete_agents_inner
-        zle -N _zsh_ai_tab_widget
-        bindkey '^I' _zsh_ai_tab_widget
+        (( ${+functions[compdef]} )) && compdef -p _zsh_ai_agents '@*'
         add-zsh-hook -d precmd _zsh_ai_do_agent_completion_init
     }
     autoload -Uz add-zsh-hook
