@@ -101,6 +101,48 @@ test_agents_dir_default() {
     teardown_test_env
 }
 
+# --- @ completion registration ----------------------------------------------
+# The completer is prepended to the `completer` zstyle, NOT registered with
+# `compdef -p` (which would only govern arguments of an "@…"-named command).
+test_completer_noop_without_completion_system() {
+    setup_test_env
+    unset 'functions[compdef]' 2>/dev/null
+    # With no completion system (no compdef), registration must be a no-op.
+    _zsh_ai_register_agent_completion && TEST_FAILED=1
+    teardown_test_env
+}
+
+test_completer_prepended_preserving_chain() {
+    setup_test_env
+    functions[compdef]='true'   # pretend the completion system is up
+    zstyle ':completion:*' completer _expand _complete _ignored
+    _zsh_ai_register_agent_completion || TEST_FAILED=1
+    local -a cur
+    zstyle -a ':completion:*' completer cur
+    # ours runs first, the user's chain is preserved after it
+    assert_equals "${cur[1]}" "_zsh_ai_completer"
+    assert_contains "${cur[*]}" "_expand"
+    assert_contains "${cur[*]}" "_complete"
+    # idempotent: a second call must not add a duplicate
+    _zsh_ai_register_agent_completion
+    zstyle -a ':completion:*' completer cur
+    assert_equals "${(M)#cur:#_zsh_ai_completer}" "1"
+    zstyle -d ':completion:*' completer
+    unset 'functions[compdef]'
+    teardown_test_env
+}
+
+test_completer_falls_through_for_non_at() {
+    setup_test_env
+    # Not command position -> return 1 (let the chain continue), no agent lookup.
+    local CURRENT=2 PREFIX="@foo"
+    _zsh_ai_completer && TEST_FAILED=1
+    # Command position but not "@" -> return 1.
+    CURRENT=1 PREFIX="ls"
+    _zsh_ai_completer && TEST_FAILED=1
+    teardown_test_env
+}
+
 # Run all tests
 run_test "Agent id validation blocks traversal/slash/dots" test_id_valid
 run_test "Agent ids are listed" test_agent_ids_listed
@@ -109,5 +151,8 @@ run_test "Agent name and multi-line prompt read" test_agent_name_and_prompt
 run_test "Agent name falls back to id" test_agent_name_falls_back_to_id
 run_test "Agent existence check" test_agent_exists
 run_test "Agents dir default path" test_agents_dir_default
+run_test "Completer is a no-op before completion system is up" test_completer_noop_without_completion_system
+run_test "Completer is prepended, preserving the chain, idempotently" test_completer_prepended_preserving_chain
+run_test "Completer falls through for non-command-position / non-@" test_completer_falls_through_for_non_at
 
 finish_tests

@@ -115,11 +115,21 @@ document.
 ls "${ZSH_AI_AGENTS_DIR:-$HOME/.config/zsh-ai/agents}"   # expect <id>.json files
 ```
 
-Agent ids may only contain letters, digits, `_` and `-`. `@` completion hooks
-the completion system (command words matching `@*`) and does **not** rebind the
-Tab key, so it works alongside menu completion, fzf-tab, etc. It needs the
-completion system initialized (`compinit`), which oh-my-zsh and most setups do
-already. If it still doesn't trigger, disable it and start the chat explicitly:
+Agent ids may only contain letters, digits, `_` and `-`. `@` completion works by
+prepending a completer to your `completer` zstyle (so a command-position word
+starting with `@` offers agent ids); it does **not** rebind the Tab key, so it
+works alongside menu completion, fzf-tab, etc., and your normal completion is
+untouched. It needs the completion system initialized (`compinit`), which
+oh-my-zsh and most setups do already. To verify it registered:
+
+```bash
+zstyle -L ':completion:*' completer   # should list _zsh_ai_completer first
+```
+
+If `compinit` warns `insecure directories` on macOS/Homebrew, fix the dir
+permissions (`compaudit | xargs chmod g-w`) or initialize with `compinit -i`.
+
+If it still doesn't trigger, disable it and start the chat explicitly:
 
 ```bash
 export ZSH_AI_AGENT_TAB="false"

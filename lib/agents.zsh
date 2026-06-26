@@ -89,15 +89,20 @@ _zsh_ai_agent_prompt() {
 
 # --- @ completion -----------------------------------------------------------
 #
-# Agents are completed by hooking the COMPLETION SYSTEM, not the Tab key: a
-# command-position word matching "@*" completes to agent ids. This means we
-# never rebind Tab — your existing Tab/completion (menu, fzf-tab, zsh-autocomplete,
-# …) is used as-is and is completely untouched. It also gives exactly the right
-# scoping for free: only the FIRST word of a line starting with "@" triggers it;
-# "@" inside a later word or mid-word (user@host, @scope/pkg, @{upstream}) never
-# does, because those aren't in command position.
+# Agents are completed by hooking the COMPLETION SYSTEM, not the Tab key: when
+# the FIRST word of the line starts with "@", completing it offers agent ids.
+# This never rebinds Tab — your existing Tab/completion (menu, fzf-tab,
+# zsh-autocomplete, …) is used as-is and is completely untouched.
+#
+# It is implemented as a custom completer prepended to the `completer` zstyle.
+# A pattern completion (`compdef -p _zsh_ai_agents '@*'`) does NOT work here: that
+# governs how the ARGUMENTS of a command named "@…" are completed, not how the
+# command word itself is completed — so it never fires for a leading "@". The
+# completer runs first, handles only a command-position "@…" word, and otherwise
+# returns non-zero so the rest of your completer chain runs unchanged.
 
-# Completion function (runs in completion context, so compadd/_describe work).
+# Build the agent-id candidates (runs in completion context, so compadd/_describe
+# work). Returns non-zero when there are no agents, so completion falls through.
 _zsh_ai_agents() {
     local -a raw ids disp
     raw=( ${(f)"$(_zsh_ai_agent_ids)"} )
@@ -115,12 +120,24 @@ _zsh_ai_agents() {
     fi
 }
 
-# Register the "@*" command-pattern completion. Returns 0 once registered.
-# compdef only exists after the completion system is initialized (compinit), so
-# this is a no-op (returns 1) until then.
+# Custom completer: only acts on a command-position word beginning with "@";
+# otherwise returns 1 so the next completer in the chain takes over.
+_zsh_ai_completer() {
+    [[ $CURRENT -eq 1 && "$PREFIX" == @* ]] || return 1
+    _zsh_ai_agents
+}
+
+# Register by prepending _zsh_ai_completer to the `completer` zstyle, preserving
+# whatever the user already has. Idempotent. The completion system must be up
+# (compinit run) for the `completer` style to be consulted, so this returns 1
+# until then and is retried from a precmd hook (see below).
 _zsh_ai_register_agent_completion() {
     (( ${+functions[compdef]} )) || return 1
-    compdef -p _zsh_ai_agents '@*' 2>/dev/null
+    local -a cur
+    zstyle -a ':completion:*' completer cur || cur=(_complete _ignored)
+    if [[ ${cur[(I)_zsh_ai_completer]} -eq 0 ]]; then
+        zstyle ':completion:*' completer _zsh_ai_completer "${cur[@]}"
+    fi
     return 0
 }
 

@@ -421,9 +421,10 @@ export ZSH_AI_CHAT_TIMEOUT="120"        # request timeout (s) for a chat turn
 export ZSH_AI_AGENT_TAB="false"         # disable "@" agent completion
 ```
 
-> `@` completion hooks the completion system for command words matching `@*`, so
-> it uses your existing Tab (menu, fzf-tab, …) and never rebinds the Tab key —
-> normal completion is untouched.
+> `@` completion prepends a completer to your `completer` zstyle, so a
+> command-position word starting with `@` offers agent ids. It uses your existing
+> Tab (menu, fzf-tab, …), never rebinds the Tab key, and leaves normal completion
+> untouched. It needs the completion system (`compinit`) initialized.
 
 > Chat replies (and compression summaries) are uncapped by default —
 > `ZSH_AI_CHAT_MAX_TOKENS` is empty, so the model uses its own maximum. Set a
