@@ -115,15 +115,28 @@ _zsh_ai_agents() {
     fi
 }
 
-# Register the "@*" command-pattern completion once the completion system is up.
-# Deferred to the first precmd so compdef exists even when the plugin is sourced
-# before compinit.
+# Register the "@*" command-pattern completion. Returns 0 once registered.
+# compdef only exists after the completion system is initialized (compinit), so
+# this is a no-op (returns 1) until then.
+_zsh_ai_register_agent_completion() {
+    (( ${+functions[compdef]} )) || return 1
+    compdef -p _zsh_ai_agents '@*' 2>/dev/null
+    return 0
+}
+
+# Install the completion. Tries immediately (compinit may already have run, e.g.
+# under oh-my-zsh); otherwise RETRIES on every prompt until the completion system
+# is up, then stops. The earlier version removed its hook after a single attempt,
+# so if compinit had not run yet the registration was silently lost — this keeps
+# retrying instead.
 _zsh_ai_init_agent_completion() {
     _zsh_ai_agent_tab_enabled || return
+    _zsh_ai_register_agent_completion && return
 
     _zsh_ai_do_agent_completion_init() {
-        (( ${+functions[compdef]} )) && compdef -p _zsh_ai_agents '@*'
-        add-zsh-hook -d precmd _zsh_ai_do_agent_completion_init
+        if _zsh_ai_register_agent_completion; then
+            add-zsh-hook -d precmd _zsh_ai_do_agent_completion_init
+        fi
     }
     autoload -Uz add-zsh-hook
     add-zsh-hook precmd _zsh_ai_do_agent_completion_init
