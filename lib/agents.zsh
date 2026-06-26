@@ -108,10 +108,21 @@ _zsh_ai_complete_agents_inner() {
     compadd -d names -- "${ids[@]}"
 }
 
-# The Tab widget: agent completion for @words, original Tab otherwise.
+# Decide whether Tab should complete agents: ONLY while typing a leading
+# "@<id>" token — the whole line begins with "@" AND the cursor is still inside
+# that first word (no space to its left). Returns 0 (yes) / 1 (no).
+# Args: <buffer> <lbuffer>. Every other case — any line not starting with "@",
+# a later word (e.g. the first chat message), or "@" mid-word like user@host /
+# @scope/pkg / @{upstream} — returns 1 so normal completion is untouched.
+_zsh_ai_agent_tab_should_complete() {
+    local buffer="$1" lbuffer="$2"
+    [[ "$buffer" == @* && "$lbuffer" != *[[:space:]]* ]]
+}
+
+# The Tab widget: agent completion only per the predicate above; original Tab
+# binding otherwise, so normal completion is never disturbed.
 _zsh_ai_tab_widget() {
-    local word="${LBUFFER##*[[:space:]]}"
-    if [[ "$word" == @* ]]; then
+    if _zsh_ai_agent_tab_should_complete "$BUFFER" "$LBUFFER"; then
         zle _zsh_ai_complete_agents && return
     fi
     zle "${_zsh_ai_orig_tab:-expand-or-complete}"
