@@ -310,6 +310,80 @@ Then add the cron line (point it at your clone):
 > Override the env-file path with `ZSH_AI_ENV_FILE`. Test it once by hand first:
 > `zsh scripts/digest-cron.zsh`.
 
+## Agent chat
+
+Beyond one-shot command generation, zsh-ai has a multi-turn **agent chat**. An
+agent is a role/persona defined by a small JSON file; chatting with one is a
+framed REPL that remembers the conversation and saves it to disk.
+
+### Define an agent
+
+Drop a `<id>.json` file in `$ZSH_AI_AGENTS_DIR` (default
+`~/.config/zsh-ai/agents`). See [`examples/agents/`](examples/agents) for
+ready-made ones.
+
+```json
+{ "id": "english-teacher", "name": "英语教师", "prompt": "You are a patient English teacher. Correct mistakes and explain briefly." }
+```
+
+```bash
+mkdir -p ~/.config/zsh-ai/agents
+cp examples/agents/english-teacher.json ~/.config/zsh-ai/agents/
+```
+
+### Start a chat
+
+Type `@` and press **Tab** to complete an agent id, then press **Enter** to open
+the chat (optionally type a first message after the id):
+
+```bash
+@english-teacher                       # open a chat
+@english-teacher how do I use "since"? # open a chat with a first message
+```
+
+The agent's `prompt` becomes the system prompt. The whole conversation is framed
+until you type `quit`:
+
+```
+╭─ 💬 @英语教师 ──────────────────────────────────────────────────────╮
+│ 输入消息开始对话;输入 quit 退出。
+│ 你 › How do I use the present perfect tense?
+│ 英语教师 › Use "have/has" + past participle:
+│ - I have finished my homework.
+╰─────────────────────────────────────────────────────────────────────╯
+```
+
+You can also start it explicitly: `zsh-ai-chat english-teacher`.
+
+### Sessions
+
+Agent chat needs `ZSH_AI_LOG_DIR` set (sessions are saved to disk). Each session
+is one JSON-line-per-message file:
+
+```
+$ZSH_AI_LOG_DIR/sessions/<agent-id>/<YYYY-MM-DD>/session-<HHMMSSmmm>.jsonl
+```
+
+When you `@`-open an agent that already has sessions, you get a picker: `[0]` is
+a new session (the default — just press Enter), and existing sessions are listed
+under date headers showing each one's last question. It starts with **today's**
+sessions; `[m]` reveals the next five days that have sessions, and so on.
+
+### History compression
+
+Every `ZSH_AI_CHAT_MAX_ROUNDS` rounds (default 10) you're asked whether to
+compress the history. If you agree, the model summarizes the conversation into a
+single line, the live turns are replaced by that summary (the agent prompt is
+**never** compressed), and you get a size report:
+
+```
+✓ 已压缩  10 轮 / 22 行 / 8.4 KB  →  2 行 / 1.1 KB
+  备份: raw-142233871-152011455.jsonl
+```
+
+The full pre-compression file is snapshotted alongside the session as
+`raw-<session-id>-<compress-time>.jsonl`, so nothing is ever lost.
+
 ## Configuration
 
 Switch providers with `ZSH_AI_PROVIDER`:
@@ -336,6 +410,16 @@ export ZSH_AI_MAX_TOKENS="2048"
 ```
 
 > This limits output only — it does not affect how much context is sent.
+
+Tune [agent chat](#agent-chat):
+
+```bash
+export ZSH_AI_AGENTS_DIR="$HOME/.config/zsh-ai/agents"  # where agent JSON lives
+export ZSH_AI_CHAT_MAX_ROUNDS="10"      # offer to compress history every N rounds
+export ZSH_AI_CHAT_MAX_TOKENS="2048"    # output cap for a chat reply
+export ZSH_AI_CHAT_TIMEOUT="120"        # request timeout (s) for a chat turn
+export ZSH_AI_AGENT_TAB="false"         # stop binding "@"+Tab to agent completion
+```
 
 Change the inline trigger, or disable the comment hook altogether (handy when you
 paste code blocks that start with `#` comments):

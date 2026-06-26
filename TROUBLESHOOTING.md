@@ -107,6 +107,32 @@ export ZSH_AI_TIMEOUT="120"
 The digest uses `ZSH_AI_DIGEST_TIMEOUT` (default 180s) since it streams a long
 document.
 
+## Agent Chat Issues
+
+`@` + Tab shows nothing: check that agent files exist and are valid ids.
+
+```bash
+ls "${ZSH_AI_AGENTS_DIR:-$HOME/.config/zsh-ai/agents}"   # expect <id>.json files
+```
+
+Agent ids may only contain letters, digits, `_` and `-`. If Tab completion does
+not kick in at all, your config may rebind Tab after the plugin loads; set
+`export ZSH_AI_AGENT_TAB="false"` and start the chat explicitly instead:
+
+```bash
+zsh-ai-chat english-teacher
+```
+
+`zsh-ai-chat: 需要先设置 ZSH_AI_LOG_DIR`: agent chat saves sessions to disk, so
+set `ZSH_AI_LOG_DIR`:
+
+```bash
+export ZSH_AI_LOG_DIR="$HOME/.zsh-ai/logs"
+```
+
+To leave a chat, type `quit` (or `exit` / `:q`). The session is saved to
+`$ZSH_AI_LOG_DIR/sessions/<agent-id>/<date>/session-<time>.jsonl`.
+
 ## Inspecting Requests
 
 When logging is enabled (`ZSH_AI_LOG_DIR`), every request is recorded as JSON in

@@ -251,6 +251,36 @@ export OPENAI_API_KEY="sk-…"
 See the [README](README.md) for output modes, safety/blacklist, Chinese
 auto-detection, and diagnostics.
 
+## Agent Chat
+
+Define agents (role personas) as JSON files in `ZSH_AI_AGENTS_DIR` (default
+`~/.config/zsh-ai/agents`), then type `@` + Tab to complete an agent id and Enter
+to start a framed multi-turn chat. Sessions are saved under `ZSH_AI_LOG_DIR`, so
+that must be set too.
+
+```bash
+mkdir -p ~/.config/zsh-ai/agents
+cp examples/agents/english-teacher.json ~/.config/zsh-ai/agents/
+export ZSH_AI_LOG_DIR="$HOME/.zsh-ai/logs"   # required for chat sessions
+```
+
+Each agent file is `<id>.json` with `id`, `name`, and `prompt`:
+
+```json
+{ "id": "english-teacher", "name": "英语教师", "prompt": "You are an English teacher ..." }
+```
+
+Tunables:
+
+```bash
+export ZSH_AI_AGENTS_DIR="$HOME/.config/zsh-ai/agents"
+export ZSH_AI_CHAT_MAX_ROUNDS="10"            # offer to compress every N rounds
+export ZSH_AI_CHAT_MAX_TOKENS="2048"          # output cap per chat reply
+export ZSH_AI_CHAT_COMPRESS_MAX_TOKENS="2048" # output cap for the summary
+export ZSH_AI_CHAT_TIMEOUT="120"              # request timeout (s) per chat turn
+export ZSH_AI_AGENT_TAB="true"                # set false to leave Tab untouched
+```
+
 ## Inline Trigger
 
 By default, lines starting with `# ` are sent to the AI when you press Enter. Both

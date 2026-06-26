@@ -20,9 +20,15 @@ source "${plugin_dir}/lib/providers/mistral.zsh"
 source "${plugin_dir}/lib/utils.zsh"
 source "${plugin_dir}/lib/logging.zsh"
 source "${plugin_dir}/lib/digest.zsh"
+source "${plugin_dir}/lib/agents.zsh"
+source "${plugin_dir}/lib/chat.zsh"
 source "${plugin_dir}/lib/widget.zsh"
 
 # Initialize the plugin
 if _zsh_ai_validate_config; then
     _zsh_ai_init_widget
 fi
+
+# Agent "@"+Tab completion is independent of the "# " comment hook and of the
+# provider key (you may want to browse agents before configuring a key).
+_zsh_ai_init_agent_completion

@@ -39,6 +39,25 @@ _zsh_ai_log_enabled() {
     [[ -n "$ZSH_AI_LOG_DIR" ]]
 }
 
+# Agent chat (lib/agents.zsh + lib/chat.zsh) --------------------------------
+# Agents are JSON files (<id>.json with id/name/prompt) under ZSH_AI_AGENTS_DIR.
+# Typing "@" + Tab completes agent ids; "@<id>" + Enter starts a chat session
+# (sessions are stored under ZSH_AI_LOG_DIR/sessions/, so chat needs that set).
+: ${ZSH_AI_AGENTS_DIR:="$HOME/.config/zsh-ai/agents"}
+: ${ZSH_AI_CHAT_MAX_ROUNDS:="10"}            # offer to compress every N rounds
+: ${ZSH_AI_CHAT_MAX_TOKENS:="2048"}          # output cap for a chat reply
+: ${ZSH_AI_CHAT_COMPRESS_MAX_TOKENS:="2048"} # output cap for the summary
+: ${ZSH_AI_CHAT_TIMEOUT:="120"}              # request timeout for a chat turn
+: ${ZSH_AI_AGENT_TAB:="true"}                # bind "@"+Tab to agent completion
+
+# Return 0 if the "@"+Tab agent completion should be installed, 1 otherwise.
+_zsh_ai_agent_tab_enabled() {
+    case "${ZSH_AI_AGENT_TAB:l}" in
+        false|off|no|0|disabled) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
 # Network timeouts (seconds) ------------------------------------------------
 # Without these, a stalled connection makes curl hang forever - the interactive
 # spinner spins indefinitely and a nightly cron digest becomes a zombie process.

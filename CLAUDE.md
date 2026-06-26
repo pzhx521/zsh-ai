@@ -18,7 +18,10 @@ This repo is a small zsh plugin that turns natural-language prompts into shell c
 - `lib/utils.zsh`: prompt construction, provider routing, `zsh-ai`
 - `lib/logging.zsh`: JSONL request logging (locked appends), gated by `ZSH_AI_LOG_DIR`
 - `lib/digest.zsh`: `zsh-ai-digest` daily knowledge-base generator
+- `lib/agents.zsh`: agent JSON loading + `@`+Tab completion
+- `lib/chat.zsh`: `zsh-ai-chat` multi-turn agent REPL, sessions, compression
 - `lib/providers/`: provider modules
+- `examples/agents/`: sample agent JSON files
 
 ## Invariants
 
@@ -27,6 +30,10 @@ This repo is a small zsh plugin that turns natural-language prompts into shell c
 - commands land in the prompt before execution
 - test both `# ...` and `zsh-ai "..."`
 - provider changes need tests and docs
+- agent chat (`lib/chat.zsh`) does NOT modify providers: `_zsh_ai_chat_complete`
+  builds per-provider payloads itself and reuses the shared curl/parse helpers
+- chat helpers that set globals (`_zsh_ai_chat_complete`, `_zsh_ai_chat_compress`)
+  must never be called via `$(...)` — a subshell would lose those globals
 
 ## Tests
 

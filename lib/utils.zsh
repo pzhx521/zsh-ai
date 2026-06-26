@@ -41,6 +41,15 @@ _zsh_ai_finalize_content() {
     fi
 }
 
+# Trim leading and trailing whitespace from a string (no extendedglob needed).
+_zsh_ai_trim() {
+    emulate -L zsh
+    local s="$1"
+    s="${s#"${s%%[![:space:]]*}"}"
+    s="${s%"${s##*[![:space:]]}"}"
+    printf '%s' "$s"
+}
+
 # Echo the model name for the currently selected provider.
 _zsh_ai_current_model() {
     case "$ZSH_AI_PROVIDER" in

@@ -8,6 +8,23 @@ _zsh_ai_accept_line() {
     local query=""
     local _zsh_ai_matched=0
 
+    # Agent chat entry: "@<agent-id>" or "@<agent-id> <first message>" on a
+    # single line. Launch the chat REPL as a normal foreground command (running
+    # an interactive read loop inside ZLE would not work), passing any trailing
+    # text as the first message. Unknown @-words fall through to normal handling.
+    if [[ "$BUFFER" == @[A-Za-z0-9_-]* && "$BUFFER" != *$'\n'* ]] && \
+       (( ${+functions[_zsh_ai_agent_exists]} )); then
+        local _rest="${BUFFER#@}"
+        local _aid="${_rest%%[[:space:]]*}"
+        local _msg="$(_zsh_ai_trim "${_rest#$_aid}")"
+        if _zsh_ai_agent_exists "$_aid"; then
+            BUFFER="zsh-ai-chat ${(q)_aid}"
+            [[ -n "$_msg" ]] && BUFFER+=" ${(q)_msg}"
+            zle .accept-line
+            return
+        fi
+    fi
+
     # Decide whether this line should be sent to the AI:
     #   1. it starts with the configured trigger (default "# "), or
     #   2. Chinese auto-detection is on and the line contains CJK characters.
