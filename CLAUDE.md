@@ -19,7 +19,8 @@ This repo is a small zsh plugin that turns natural-language prompts into shell c
 - `lib/logging.zsh`: JSONL request logging (locked appends), gated by `ZSH_AI_LOG_DIR`
 - `lib/digest.zsh`: `zsh-ai-digest` daily knowledge-base generator
 - `lib/agents.zsh`: agent JSON loading + `@`+Tab completion
-- `lib/chat.zsh`: `zsh-ai-chat` multi-turn agent REPL, sessions, compression
+- `lib/chat.zsh`: `zsh-ai-chat` multi-turn agent REPL, sessions, compression,
+  markdown rendering of replies via `glow` (gated by `ZSH_AI_CHAT_MARKDOWN`)
 - `lib/providers/`: provider modules
 - `examples/agents/`: sample agent JSON files
 

@@ -280,7 +280,14 @@ export ZSH_AI_CHAT_MAX_ROUNDS="10"   # offer to compress every N rounds
 export ZSH_AI_CHAT_MAX_TOKENS=""     # output cap; empty = unlimited (default)
 export ZSH_AI_CHAT_TIMEOUT="120"     # request timeout (s) per chat turn
 export ZSH_AI_AGENT_TAB="true"       # set false to disable "@" agent completion
+export ZSH_AI_CHAT_MARKDOWN="auto"   # render replies with glow if installed; "off" = plain text
 ```
+
+Agent replies are usually markdown. If [`glow`](https://github.com/charmbracelet/glow)
+is on your `PATH`, `zsh-ai-chat` renders them (headings, lists, code blocks,
+tables); otherwise it shows plain text and prints a one-line install hint when a
+chat starts. Install it with `brew install glow` (macOS) or see the glow repo.
+Set `ZSH_AI_CHAT_MARKDOWN="off"` to always show plain text and silence the hint.
 
 ## Inline Trigger
 

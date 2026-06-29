@@ -325,7 +325,63 @@ test_chat_errors_on_unknown_agent() {
     teardown_test_env
 }
 
+# --- markdown rendering -----------------------------------------------------
+test_markdown_enabled_gate() {
+    setup_test_env
+    local v
+    for v in auto on "" yes whatever; do
+        ZSH_AI_CHAT_MARKDOWN="$v"
+        _zsh_ai_chat_markdown_enabled || { echo "expected ENABLED for '$v'"; TEST_FAILED=1; }
+    done
+    for v in off false no 0 disabled OFF; do
+        ZSH_AI_CHAT_MARKDOWN="$v"
+        _zsh_ai_chat_markdown_enabled && { echo "expected disabled for '$v'"; TEST_FAILED=1; }
+    done
+    unset ZSH_AI_CHAT_MARKDOWN
+    teardown_test_env
+}
+
+test_render_fallback_plain_when_no_glow() {
+    setup_test_env
+    local _zsh_ai_chat_glow=""   # no renderer
+    local out="$(_zsh_ai_chat_render_reply $'\e[32m' "bot › " $'## Title\n- item')"
+    # plain framed text: the literal markdown survives, each line bar-prefixed
+    assert_contains "$out" "## Title"
+    assert_contains "$out" "- item"
+    assert_contains "$out" "bot ›"
+    teardown_test_env
+}
+
+test_render_uses_glow_when_present() {
+    setup_test_env
+    # mock glow on the call path: prefix every input line with RENDERED:
+    glow() { local l; while IFS= read -r l; do print -r -- "RENDERED:$l"; done }
+    local _zsh_ai_chat_glow="glow"
+    local COLUMNS=80
+    local out="$(_zsh_ai_chat_render_reply $'\e[32m' "bot › " $'hello\nworld')"
+    assert_contains "$out" "RENDERED:hello"
+    assert_contains "$out" "RENDERED:world"
+    # speaker tag is emitted on its own line (trailing space trimmed)
+    assert_contains "$out" "bot ›"
+    unfunction glow
+    teardown_test_env
+}
+
+test_render_glow_empty_output_falls_back() {
+    setup_test_env
+    glow() { : }   # produces nothing
+    local _zsh_ai_chat_glow="glow"
+    local out="$(_zsh_ai_chat_render_reply $'\e[32m' "bot › " "plain reply")"
+    assert_contains "$out" "plain reply"
+    unfunction glow
+    teardown_test_env
+}
+
 # Run all tests
+run_test "Markdown render gate (auto/on vs off/false)" test_markdown_enabled_gate
+run_test "Render falls back to plain text without glow" test_render_fallback_plain_when_no_glow
+run_test "Render pipes through glow when present" test_render_uses_glow_when_present
+run_test "Render falls back when glow emits nothing" test_render_glow_empty_output_falls_back
 run_test "Build messages JSON with/without system" test_msgs_json_with_and_without_system
 run_test "Messages JSON escapes quotes" test_msgs_json_escapes_quotes
 run_test "Gemini contents maps assistant to model" test_contents_json_maps_assistant_to_model

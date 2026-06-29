@@ -552,6 +552,37 @@ _zsh_ai_chat_say() {
     done <<< "$text"
 }
 
+# Print an assistant reply into the chat frame, rendering markdown with `glow`
+# when it is available ($_zsh_ai_chat_glow is set by zsh-ai-chat at startup),
+# otherwise falling back to plain framed text. The reply is already sanitized
+# (no raw ESC) before it reaches here, so glow only ever sees clean text and the
+# only ANSI in the output is what glow itself emits.
+_zsh_ai_chat_render_reply() {
+    emulate -L zsh
+    local color="$1" label="$2" text="$3"
+    local bar=$'\e[90m│\e[0m ' rs=$'\e[0m'
+
+    if [[ -n "$_zsh_ai_chat_glow" ]]; then
+        integer cols=${COLUMNS:-80}; (( cols < 40 )) && cols=80; (( cols > 100 )) && cols=100
+        integer w=$(( cols - 2 )); (( w < 20 )) && w=20
+        local rendered
+        rendered="$("$_zsh_ai_chat_glow" -w "$w" - <<< "$text" 2>/dev/null)"
+        # Trim leading/trailing blank lines glow adds, so the frame stays tight.
+        rendered="${rendered#$'\n'}"; rendered="${rendered%$'\n'}"
+        if [[ -n "$rendered" ]]; then
+            local line
+            # Speaker tag on its own line, then the rendered body under the bar.
+            print -r -- "${bar}${color}${label%% }${rs}"
+            while IFS= read -r line; do
+                print -r -- "${bar}${line}"
+            done <<< "$rendered"
+            return
+        fi
+    fi
+    # No glow (or it produced nothing): plain framed text, unchanged behavior.
+    _zsh_ai_chat_say "$color" "$label" "$text"
+}
+
 # --- entry point ------------------------------------------------------------
 
 zsh-ai-chat() {
@@ -588,6 +619,16 @@ zsh-ai-chat() {
     if [[ -z "$agent_prompt" ]]; then
         print -r -- "zsh-ai-chat: agent '@$agent_id' 的 prompt 为空。" >&2
         return 1
+    fi
+
+    # Probe for the markdown renderer once, before the session picker. If enabled
+    # but glow is missing, hint how to get rendering (one line, above the picker).
+    local _zsh_ai_chat_glow=""
+    if _zsh_ai_chat_markdown_enabled; then
+        _zsh_ai_chat_glow="$(command -v glow 2>/dev/null)"
+        if [[ -z "$_zsh_ai_chat_glow" ]]; then
+            print -r -- $'\e[90m提示: 未检测到 glow,回复将以纯文本显示。安装后可渲染 markdown:brew install glow(关闭本提示: ZSH_AI_CHAT_MARKDOWN=off)\e[0m' >&2
+        fi
     fi
 
     # Pick or create a session.
@@ -649,7 +690,7 @@ zsh-ai-chat() {
             continue
         fi
 
-        _zsh_ai_chat_say "$grn" "${agent_name} › " "$reply"
+        _zsh_ai_chat_render_reply "$grn" "${agent_name} › " "$reply"
         turn_roles+=("assistant"); turn_contents+=("$reply")
         _zsh_ai_chat_append_line "$session_file" assistant "$reply"
         (( rounds++ ))

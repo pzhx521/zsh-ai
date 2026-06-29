@@ -420,12 +420,18 @@ export ZSH_AI_CHAT_MAX_ROUNDS="10"      # offer to compress history every N roun
 export ZSH_AI_CHAT_MAX_TOKENS=""        # output cap; empty = unlimited (default)
 export ZSH_AI_CHAT_TIMEOUT="120"        # request timeout (s) for a chat turn
 export ZSH_AI_AGENT_TAB="false"         # disable "@" agent completion
+export ZSH_AI_CHAT_MARKDOWN="auto"      # render replies with glow if installed; "off" = plain
 ```
 
 > `@` completion prepends a completer to your `completer` zstyle, so a
 > command-position word starting with `@` offers agent ids. It uses your existing
 > Tab (menu, fzf-tab, …), never rebinds the Tab key, and leaves normal completion
 > untouched. It needs the completion system (`compinit`) initialized.
+
+> Replies are markdown. With [`glow`](https://github.com/charmbracelet/glow) on
+> your `PATH` they render with headings, lists, and code blocks; without it you
+> get plain text and a one-line install hint at the start of a chat. `brew install
+> glow`, or set `ZSH_AI_CHAT_MARKDOWN="off"` to keep plain text and hide the hint.
 
 > Chat replies (and compression summaries) are uncapped by default —
 > `ZSH_AI_CHAT_MAX_TOKENS` is empty, so the model uses its own maximum. Set a

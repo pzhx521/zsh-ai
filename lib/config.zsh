@@ -52,11 +52,23 @@ _zsh_ai_log_enabled() {
 : ${ZSH_AI_CHAT_MAX_TOKENS:=""}
 : ${ZSH_AI_CHAT_TIMEOUT:="120"}              # request timeout for a chat turn
 : ${ZSH_AI_AGENT_TAB:="true"}                # bind "@"+Tab to agent completion
+# Render agent replies as markdown via `glow` when it is installed. "auto"
+# (default) renders if glow is found and otherwise falls back to plain text;
+# "off" always shows plain text (and suppresses the install hint).
+: ${ZSH_AI_CHAT_MARKDOWN:="auto"}
 
 # Return 0 if the "@"+Tab agent completion should be installed, 1 otherwise.
 _zsh_ai_agent_tab_enabled() {
     case "${ZSH_AI_AGENT_TAB:l}" in
         false|off|no|0|disabled) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+# Return 0 if markdown rendering of chat replies is enabled, 1 otherwise.
+_zsh_ai_chat_markdown_enabled() {
+    case "${ZSH_AI_CHAT_MARKDOWN:l}" in
+        off|false|no|0|disabled) return 1 ;;
         *) return 0 ;;
     esac
 }

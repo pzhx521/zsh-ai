@@ -146,6 +146,17 @@ export ZSH_AI_LOG_DIR="$HOME/.zsh-ai/logs"
 To leave a chat, type `quit` (or `exit` / `:q`). The session is saved to
 `$ZSH_AI_LOG_DIR/sessions/<agent-id>/<date>/session-<time>.jsonl`.
 
+Replies show raw markdown (literal `##`, `**`, code fences): install
+[`glow`](https://github.com/charmbracelet/glow) so `zsh-ai-chat` can render them.
+
+```bash
+brew install glow
+```
+
+`zsh-ai-chat` auto-detects `glow` on your `PATH` at startup and prints a hint
+when it is missing. Set `ZSH_AI_CHAT_MARKDOWN="off"` to force plain text and
+silence that hint.
+
 ## Inspecting Requests
 
 When logging is enabled (`ZSH_AI_LOG_DIR`), every request is recorded as JSON in
