@@ -320,7 +320,8 @@ framed REPL that remembers the conversation and saves it to disk.
 
 Drop a `<id>.json` file in `$ZSH_AI_AGENTS_DIR` (default
 `~/.config/zsh-ai/agents`). See [`examples/agents/`](examples/agents) for
-ready-made ones.
+ready-made ones — `english-teacher` (英语教师), `sql-helper` (SQL 助手), and
+`shell-engineer` (终端命令工程师).
 
 ```json
 { "id": "english-teacher", "name": "英语教师", "prompt": "You are a patient English teacher. Correct mistakes and explain briefly." }
@@ -328,7 +329,7 @@ ready-made ones.
 
 ```bash
 mkdir -p ~/.config/zsh-ai/agents
-cp examples/agents/english-teacher.json ~/.config/zsh-ai/agents/
+cp examples/agents/*.json ~/.config/zsh-ai/agents/   # copy all bundled examples
 ```
 
 ### Start a chat

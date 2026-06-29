@@ -260,11 +260,13 @@ that must be set too.
 
 ```bash
 mkdir -p ~/.config/zsh-ai/agents
-cp examples/agents/english-teacher.json ~/.config/zsh-ai/agents/
+cp examples/agents/*.json ~/.config/zsh-ai/agents/   # english-teacher, sql-helper, shell-engineer
 export ZSH_AI_LOG_DIR="$HOME/.zsh-ai/logs"   # required for chat sessions
 ```
 
-Each agent file is `<id>.json` with `id`, `name`, and `prompt`:
+The bundled examples are `english-teacher` (英语教师), `sql-helper` (SQL 助手),
+and `shell-engineer` (终端命令工程师). Each agent file is `<id>.json` with `id`,
+`name`, and `prompt`:
 
 ```json
 { "id": "english-teacher", "name": "英语教师", "prompt": "You are an English teacher ..." }
